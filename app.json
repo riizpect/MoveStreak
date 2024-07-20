@@ -2,7 +2,7 @@
   "expo": {
     "name": "RunstreakApp",
     "slug": "runstreakapp",
-    "version": "1.0.0",
+    "version": "1.0.13",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -13,8 +13,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourname.runstreakapp",
-      "config": {
-        "usesHealthKit": true
+      "buildNumber": "14",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Runstreak App needs access to your health data to track your running activities.",
+        "NSHealthUpdateUsageDescription": "Runstreak App needs access to update your health data with your running activities."
       }
     },
     "android": {
@@ -30,6 +32,9 @@
       "eas": {
         "projectId": "6a9a6855-9d4c-49a4-ac0b-9f3ac891c248"
       }
-    }
+    },
+    "plugins": [
+      "expo-localization"
+    ]
   }
 }
