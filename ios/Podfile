@@ -1,0 +1,18 @@
+platform :ios, '11.0'
+
+target 'RunstreakApp' do
+  use_expo_modules!
+  config = use_native_modules!
+
+  pod 'expo-insights', path: '../node_modules/expo-insights'
+
+  # Lägg till andra nödvändiga pods här
+
+  post_install do |installer|
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      end
+    end
+  end
+end
