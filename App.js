@@ -82,7 +82,8 @@ const runningQuotes = [
   "Löpning är frihet.",
   "Starkare för varje dag.",
   "Din resa, dina mål.",
-  "Man ångrar aldrig ett löppass"
+  "Man ångrar aldrig ett löppass",
+  "Målet är bara början"
 ];
 
 const walkingQuotes = [
@@ -96,6 +97,7 @@ const walkingQuotes = [
   "Man ångrar aldrig en promenad.",
   "Frisk luft och motion.",
   "Vandra med ett leende.",
+  "Hälsa och lycka börjar med en promenad",
   "Promenera mot dina mål.",
   "Långsamt men stadigt."
 ];
@@ -108,6 +110,7 @@ const cyclingQuotes = [
   "Vind i håret, frihet i själen.",
   "Varje tramp är ett steg närmare ditt mål.",
   "En dag utan cykling är en dag förlorad.",
+  "Trampa bort alla bekymmer"
   // Lägg till fler citat här
 ];
 
@@ -163,6 +166,7 @@ export default function App() {
   const [newEndDate, setNewEndDate] = useState(new Date());
   const [isStartDatePickerVisible, setStartDatePickerVisible] = useState(false);
   const [isEndDatePickerVisible, setEndDatePickerVisible] = useState(false);
+  const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
 
   const loadStreakHistory = async () => {
     try {
@@ -186,6 +190,16 @@ export default function App() {
     }
   };
 
+  const handleOpenModal = () => {
+    console.log("Öppnar popup");
+    setModalVisible(true);
+  };
+  
+  const handleCloseModal = () => {
+    console.log("Stänger popup");
+    setModalVisible(false);
+  };
+
   const playSound = async () => {
     const { sound } = await Audio.Sound.createAsync(
       require('./assets/success.mp3')
@@ -193,6 +207,10 @@ export default function App() {
     setSound(sound);
     await sound.playAsync(); 
   }
+
+  useEffect(() => {
+    console.log('Popupens synlighet:', modalVisible);
+  }, [modalVisible]);
 
   useEffect(() => {
     return sound
@@ -476,13 +494,28 @@ const resetstreakCount = async (isAutomatic = false) => {
   };
 
   // Nollställ bästa streak
-  const resetBestStreak = () => {
+  const resetBestStreak = async () => {
+    const history = await getStreakHistory(); // Hämta historiken
+    if (history.length > 0) {
+      Alert.alert(
+        'Längsta streak ej nollställd',
+        'Du kan inte nollställa längsta streak så länge det finns sparad historik.'
+      );
+      return;
+    }
+  
     if (streakCount >= bestStreak) {
-      Alert.alert('Längsta streak ej nollställd', 'Din längsta streak kan inte vara lägre än din nuvarande streak.');
+      Alert.alert(
+        'Längsta streak ej nollställd',
+        'Din längsta streak kan inte vara lägre än din nuvarande streak.'
+      );
     } else {
       setBestStreak(streakCount);
       saveSetting('bestStreak', streakCount);
-      Alert.alert('Längsta streak nollställd', 'Din längsta streak har blivit nollställd.');
+      Alert.alert(
+        'Längsta streak nollställd',
+        'Din längsta streak har blivit nollställd.'
+      );
     }
   };
 
@@ -556,6 +589,10 @@ if (streakCount === 0) {
   useEffect(() => {
     loadStreakHistory();
   }, []);
+
+  useEffect(() => {
+    console.log("Popupens synlighet ändrad: ", modalVisible);
+  }, [modalVisible]);
 
   useEffect(() => {
     const checkForNewVersion = async () => {
@@ -860,41 +897,36 @@ const notificationContent = isActivityLogged
 
   // Bekräfta tidändring för notiser
   const confirmTime = () => {
+    console.log("Tid bekräftad:", tempNotificationTime);
     setNotificationTime(tempNotificationTime);
     setNotificationActive(true);
     saveSetting('notificationTime', tempNotificationTime);
     saveSetting('notificationActive', true);
     scheduleDailyNotification();
     setSettingsVisible(true);
-    setModalVisible(false);
+    handleCloseModal();
   };
 
   // Avbryt tidändring för notiser
   const cancelTime = () => {
     setSettingsVisible(true);
-    setModalVisible(false);
+    handleCloseModal();
   };
 
   // Växla notisstatus
   const toggleNotification = async () => {
-    console.log("Toggling notification. Currently active:", notificationActive);
-    if (!notificationActive) {
-      console.log("Enabling notifications.");
-      const permissionGranted = await requestNotificationPermission();
-      if (!permissionGranted) {
-        console.log("Notification permission not granted.");
-        return;
-      }
-      await saveSetting('notificationActive', true);
-      setNotificationActive(true);
+    const permissionGranted = await requestNotificationPermission();
+    if (!permissionGranted) return;
+  
+    const newNotificationState = !notificationActive;
+    setNotificationActive(newNotificationState);
+    await saveSetting('notificationActive', newNotificationState);
+  
+    if (newNotificationState) {
       await scheduleDailyNotification();
     } else {
-      console.log("Disabling notifications.");
-      await saveSetting('notificationActive', false);
-      setNotificationActive(false);
       await Notifications.cancelAllScheduledNotificationsAsync();
     }
-    console.log("Notification state after toggle:", !notificationActive);
   };
   
   // Lägg till useEffect för att schemalägga dagliga notiser när notificationActive ändras
@@ -975,15 +1007,24 @@ const notificationContent = isActivityLogged
   };
 
   // Dela streak på sociala medier
-  const shareRunstreak = async () => {
-    try {
-      const result = await Share.share({
-        message: `Jag har ${streakCount} dagars ${activityMode === 'run' ? 'löpstreak' : 'promenadstreak'}! #MoveStreakApp`,
-      });
-    } catch (error) {
-      alert(error.message);
-    }
-  };
+const shareRunstreak = async () => {
+  try {
+    const activityType =
+      activityMode === 'run'
+        ? 'löpstreak'
+        : activityMode === 'walk'
+        ? 'promenadstreak'
+        : activityMode === 'cycling'
+        ? 'cykelstreak'
+        : 'träningsstreak';
+
+    const result = await Share.share({
+      message: `Jag har ${streakCount} dagars ${activityType}! #MoveStreakApp`,
+    });
+  } catch (error) {
+    alert(error.message);
+  }
+};
 
   // Sätt retroaktiv streak
   const setRetroactiveStreak = async () => {
@@ -1335,10 +1376,11 @@ const notificationContent = isActivityLogged
   buttonStyle={[styles.smallButton, { backgroundColor: '#42A5F5' }]}
   onPress={() => {
     setSettingsVisible(false);
-    setModalVisible(true);
+    handleOpenModal();
   }}
   containerStyle={styles.smallButtonContainer}
 />
+
 
 </View>
 
@@ -1416,7 +1458,7 @@ const notificationContent = isActivityLogged
             animationType="slide"
             transparent={true}
             visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
+            onRequestClose={handleCloseModal}
           >
             <View style={styles.centeredView}>
               <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
@@ -1430,7 +1472,6 @@ const notificationContent = isActivityLogged
 <DateTimePickerModal
   isVisible={isNotificationDatePickerVisible}
   mode="time"
-  date={tempNotificationTime} // Se till att visa den aktuella tiden
   onConfirm={handleNotificationDateConfirm}
   onCancel={hideNotificationDatePicker}
 />
@@ -1505,14 +1546,16 @@ const notificationContent = isActivityLogged
   renderItem={({ item }) => {
     const startDate = new Date(item.startDate).toLocaleDateString('sv-SE');
     const endDate = new Date(item.endDate).toLocaleDateString('sv-SE');
-    const start = new Date(item.startDate);
-    const end = new Date(item.endDate);
-    const lengthInDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    const lengthInDays = Math.ceil((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24)) + 1;
 
     return (
       <View style={styles.historyCard}>
-        <Text style={styles.historyDateText}>{startDate} - {endDate}</Text>
-        <Text style={styles.historyLengthText}>{lengthInDays} dagar</Text>
+        <View style={styles.dateContainer}>
+          <Text style={styles.historyDateText}>{startDate} → {endDate}</Text>
+          <View style={styles.dayCountContainer}>
+            <Text style={styles.dayCountText}>{lengthInDays} dagar</Text>
+          </View>
+        </View>
         <TouchableOpacity
           style={styles.historyDeleteButton}
           onPress={() => removeStreak(item.id)}
@@ -1650,7 +1693,7 @@ const styles = StyleSheet.create({
 
   historyCard: {
     flexDirection: 'column',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 15,
     backgroundColor: '#fff',
@@ -1661,20 +1704,48 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     marginBottom: 10,
-    width: '95%',
+    width: '90%',
     alignSelf: 'center',
   },
   historyInfo: {
     flex: 1,
   },
+
+  dateContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+  },
+
+dayCountContainer: { 
+  backgroundColor: '#FFD700', // Gul bakgrund för rutan
+  borderRadius: 5, // Rundade hörn
+  paddingVertical: 5,
+  paddingHorizontal: 10,
+  marginLeft: 10,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 2,
+  elevation: 2,
+},
+dayCountText: {
+  color: '#000', // Svart text
+  fontWeight: 'bold',
+  fontSize: 14,
+},
+
   historyDateText: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#3E4A89',
+    textAlign: 'center',
   },
   historyLengthText: {
     fontSize: 14,
     color: '#666',
+    marginVertical: 5,
   },
   historyDeleteButton: {
     paddingVertical: 5,
@@ -1682,6 +1753,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f44336',
     borderRadius: 5,
     alignItems: 'center',
+    marginTop: 10,
   },
   historyDeleteButtonText: {
     color: '#fff',
@@ -2188,9 +2260,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: hp('2.5%'),
+    marginTop: 20,
   },
   modalView: {
+    zIndex: 9999,
     margin: wp('2.5%'),
     backgroundColor: 'white',
     borderRadius: wp('5%'),
