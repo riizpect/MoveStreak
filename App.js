@@ -2,6 +2,10 @@ function calculateDateDifference(startDate, endDate) {
   let start = new Date(startDate);
   let end = new Date(endDate);
 
+  // Sätt tiden till midnatt för båda datumen
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
   let years = end.getFullYear() - start.getFullYear();
   let months = end.getMonth() - start.getMonth();
   let days = end.getDate() - start.getDate();
@@ -17,6 +21,7 @@ function calculateDateDifference(startDate, endDate) {
     years -= 1;
     months += 12;
   }
+
   console.log(`Beräknad skillnad: ${years} år, ${months} månader, ${days} dagar`);
   return { years, months, days };
 }
@@ -42,6 +47,9 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import * as Insights from 'expo-insights';
+
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,19 +64,15 @@ const runningQuotes = [
   "Löpning är frihet.",
   "Starkare för varje dag.",
   "Din resa, dina mål.",
-  "Man ångrar aldrig ett löppass",
-  "Den enda dåliga löpturen är den du inte tog",
-  "Målet är bara början."
+  "Man ångrar aldrig ett löppass"
 ];
 
 const walkingQuotes = [
   "En promenad om dagen håller doktorn borta.",
   "Steg för steg.",
-  "Livet är en lång promenad. Ta det steg för steg.",
   "Varje steg räknas.",
   "Promenader för kropp och själ.",
   "Utforska världen ett steg i taget.",
-  "Hälsa och lycka börjar med en promenad.",
   "Varje promenad är en seger.",
   "Promenera dig till hälsa.",
   "Man ångrar aldrig en promenad.",
@@ -86,7 +90,6 @@ const cyclingQuotes = [
   "Vind i håret, frihet i själen.",
   "Varje tramp är ett steg närmare ditt mål.",
   "En dag utan cykling är en dag förlorad.",
-  "Trampa bort alla bekymmer."
   // Lägg till fler citat här
 ];
 
@@ -97,9 +100,6 @@ const workoutQuotes = [
   "Heja heja!",
   "Ge aldrig upp på en dröm bara för att det tar tid att nå den.",
   "Träning är den bästa investeringen du kan göra i dig själv.",
-  "Ge inte upp när det gör ont, det är då det börjar räknas.",
-  "Starkare för varje repetition.",
-  "Din kropp kan stå emot nästan allt. Det är ditt sinne du måste övertyga."
   // Lägg till fler citat här
 ];
 
@@ -292,30 +292,34 @@ export default function App() {
     );
   };
 
-  // Nollställ streak-count
-  const resetstreakCount = async (isAutomatic = false) => {
-    if (streakCount > bestStreak) {
-      setBestStreak(streakCount);
-      await saveSetting('bestStreak', streakCount);
-    } 
-    setStreakCount(0);
-    setIsRunLoggedToday(false);
-    
-    // Sätt streakStartDate till null eller tomt värde
-    setStreakStartDate(null); // eller new Date() om du föredrar att visa dagens datum tills en ny streak startar
-    await saveSetting('streakStartDate', '');
-    await saveSetting('streakCount', 0);
-    await saveSetting('isRunLoggedToday', false);
-    await saveSetting('runLoggedDate', '');
+// Nollställ streak-count
+const resetstreakCount = async (isAutomatic = false) => {
+  if (streakCount > bestStreak) {
+     setBestStreak(streakCount);
+     await saveSetting('bestStreak', streakCount);
+  }
   
-    if (isAutomatic) {
-      setEncouragementVisible(true);
-    } else {
-      Alert.alert('Streak nollställd', 'Din streak har blivit nollställd.');
-    }
-  };
-  
+  // Förhindra återställning om det inte är nödvändigt
+  if (streakCount === 0) {
+     console.log('Streak är redan 0, ingen återställning behövs.');
+     return;
+  }
 
+  setStreakCount(0);
+  setIsRunLoggedToday(false);
+  
+  setStreakStartDate(null); // eller new Date() om du föredrar att visa dagens datum tills en ny streak startar
+  await saveSetting('streakStartDate', '');
+  await saveSetting('streakCount', 0);
+  await saveSetting('isRunLoggedToday', false);
+  await saveSetting('runLoggedDate', '');
+
+  if (isAutomatic) {
+     setEncouragementVisible(true);
+  } else {
+     Alert.alert('Streak nollställd', 'Din streak har blivit nollställd.');
+  }
+};
 
   const handleEncouragementClose = async () => {
     setEncouragementVisible(false);
@@ -476,16 +480,21 @@ if (streakCount === 0) {
         setNotificationActive(true);
       }
       console.log('notificationTime:', timeString);
-
+  
       const savedNotificationActive = await AsyncStorage.getItem('notificationActive');
-    if (savedNotificationActive !== null) {
-      const isActive = savedNotificationActive === 'true';
-      setNotificationActive(isActive);
-      if (isActive) {
-        await scheduleDailyNotification(); // Schemalägg notiser om de är aktiva
+      if (savedNotificationActive !== null) {
+        const isActive = savedNotificationActive === 'true';
+        setNotificationActive(isActive);
+        if (isActive) {
+          await scheduleDailyNotification(); // Schemalägg notiser om de är aktiva
+        }
       }
+      console.log('notificationActive:', savedNotificationActive);
+
+          // Om notiser är aktiva, schemalägg dem
+    if (savedNotificationActive === 'true') {
+      scheduleDailyNotification();
     }
-    console.log('notificationActive:', savedNotificationActive);
   
       const theme = await AsyncStorage.getItem('darkTheme');
       setDarkTheme(theme === 'true');
@@ -657,7 +666,7 @@ if (streakCount === 0) {
   
     console.log(`Scheduling notification for ${trigger.getHours()}:${trigger.getMinutes()}`);
   
-const isActivityLogged = await AsyncStorage.getItem('isRunLoggedToday') === 'true';
+    const isActivityLogged = (await AsyncStorage.getItem('isRunLoggedToday') || 'false') === 'true';
 const notificationContent = isActivityLogged
     ? { title: 'Bra jobbat!', body: 'Du har redan loggat din aktivitet för idag. Fortsätt så!' }
     : { title: 'Daglig påminnelse', body: 'Glöm inte att logga din streak i appen!' };
@@ -726,7 +735,7 @@ const notificationContent = isActivityLogged
       }
       await saveSetting('notificationActive', true);
       setNotificationActive(true);
-      await scheduleDailyNotification(); // Schemalägg notiser när de aktiveras
+      await scheduleDailyNotification();
     } else {
       console.log("Disabling notifications.");
       await saveSetting('notificationActive', false);
@@ -735,7 +744,6 @@ const notificationContent = isActivityLogged
     }
     console.log("Notification state after toggle:", !notificationActive);
   };
-  
   
   // Lägg till useEffect för att schemalägga dagliga notiser när notificationActive ändras
   useEffect(() => {
@@ -785,13 +793,13 @@ const notificationContent = isActivityLogged
       console.log('isRunLoggedToday:', false);
     }
     
-  
     const allowLog = !isRunLoggedToday;
     setAllowLogToday(allowLog);
     console.log('allowLogToday:', allowLog);
   
     await scheduleDailyNotification();
   };
+  
   
   
 
@@ -1032,8 +1040,6 @@ const notificationContent = isActivityLogged
     </View>
   </View>
 </Modal>
-
-
 
 
 
@@ -1465,9 +1471,10 @@ const styles = StyleSheet.create({
   },
 
   streakText: {
-    fontSize: wp('25%'),
+    fontSize: wp('15%'), // Anpassa storleken efter skärmbredden
     fontWeight: 'bold',
     color: '#3E4A89',
+    textAlign: 'center', // Se till att texten centreras
   },
   logButton: {
     backgroundColor: '#fffdbd',
@@ -1588,7 +1595,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: wp('2.5%'),
-    flexShrink: 1, 
   },
   bestStreakCard: {
     position: 'absolute',
@@ -1755,8 +1761,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: hp('0.3%') },
     shadowOpacity: 0.8,
     shadowRadius: wp('2%'),
-    elevation: 5, 
-    zIndex: 10,
+    elevation: 5,
   },
   buttonClose: {
     backgroundColor: '#ee5612',
@@ -1825,7 +1830,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: wp('2%'),
     elevation: 5,
-    maxWidth: '90%',
   },
   darkModalView: {
     backgroundColor: '#333',
