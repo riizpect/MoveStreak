@@ -1375,7 +1375,6 @@ const shareRunstreak = async () => {
   title={`Påminnelse: ${notificationTime.getHours()}:${notificationTime.getMinutes() < 10 ? '0' : ''}${notificationTime.getMinutes()}`}
   buttonStyle={[styles.smallButton, { backgroundColor: '#42A5F5' }]}
   onPress={() => {
-    setSettingsVisible(false);
     handleOpenModal();
   }}
   containerStyle={styles.smallButtonContainer}
