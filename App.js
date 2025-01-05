@@ -2013,7 +2013,7 @@ dayCountText: {
   },
   footerContainer: {
     position: 'absolute',
-    bottom: hp('1.25%'),
+    bottom: hp('2%'),
     width: '100%',
     alignItems: 'center',
 
@@ -2233,6 +2233,7 @@ dayCountText: {
   buttonContainer: {
     width: '50%',
     marginTop: hp('2%'),
+    marginBottom: hp('2%')
   },
   buttonReset: {
     backgroundColor: '#ff6f61',
@@ -2346,7 +2347,8 @@ dayCountText: {
     borderRadius: wp('2.5%'),
     paddingHorizontal: wp('5%'),
     paddingVertical: hp('1.25%'),
-    marginTop: hp('2%'),
+    marginTop: hp('3%'),
+    marginBottom: hp('2%'),
     alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: hp('0.3%') },
@@ -2355,6 +2357,7 @@ dayCountText: {
     elevation: 5,
     borderWidth: wp('0.25%'),
     borderColor: '#ddd',
+
   },
   darkSyncButton: {
     backgroundColor: '#1f1f1f',
