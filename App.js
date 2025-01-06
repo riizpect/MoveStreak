@@ -30,7 +30,7 @@ function calculateDateDifference(startDate, endDate) {
 import React, { useEffect, useState, useRef } from 'react';
 import { AppState } from 'react-native';
 import { Platform } from 'react-native';
-import { StyleSheet, Text, View, Alert, Animated, ScrollView, TouchableOpacity, Modal, Switch, Dimensions, Share} from 'react-native';
+import { StyleSheet, Text, View, Alert, FlatList, Animated, ScrollView, TouchableOpacity, Modal, Switch, Dimensions, Share} from 'react-native';
 import { Button } from 'react-native-elements';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import * as Animatable from 'react-native-animatable';
@@ -48,6 +48,24 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Insights from 'expo-insights';
+
+import * as Application from 'expo-application';
+
+const checkAppVersion = async () => {
+  const currentVersion = Application.nativeApplicationVersion || '1.0.0'; // Hämta nuvarande version
+  console.log('Aktuell version:', currentVersion); // Lägg till detta
+  const savedVersion = await AsyncStorage.getItem('appVersion'); // Hämta sparad version
+  console.log('Sparad version:', savedVersion); // Lägg till detta
+
+  if (savedVersion !== currentVersion) {
+    // Ny version upptäckt
+    console.log(`Ny version upptäckt: ${currentVersion} (tidigare: ${savedVersion})`);
+    await AsyncStorage.setItem('appVersion', currentVersion); // Uppdatera version i AsyncStorage
+    return true; // Indikerar att det är en ny version
+  }
+
+  return false; // Ingen ny version
+};
 
 
 
@@ -138,6 +156,35 @@ export default function App() {
   const [streakStartDate, setStreakStartDate] = useState(new Date());
   const [selectedBackground, setSelectedBackground] = useState('grass'); // Default bakgrund
   const [sound, setSound] = useState();
+  const [streakHistory, setStreakHistory] = useState([]);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [newStartDate, setNewStartDate] = useState(new Date());
+  const [newEndDate, setNewEndDate] = useState(new Date());
+  const [isStartDatePickerVisible, setStartDatePickerVisible] = useState(false);
+  const [isEndDatePickerVisible, setEndDatePickerVisible] = useState(false);
+
+  const loadStreakHistory = async () => {
+    try {
+      const history = await getStreakHistory();
+      setStreakHistory(history);
+  
+      // Kontrollera längsta streak från historiken
+      let longestStreakFromHistory = 0;
+      history.forEach((streak) => {
+        if (streak.length > longestStreakFromHistory) {
+          longestStreakFromHistory = streak.length;
+        }
+      });
+  
+      // Jämför med den aktuella streaken
+      const longestStreakOverall = Math.max(longestStreakFromHistory, streakCount);
+      setBestStreak(longestStreakOverall);
+      await saveSetting('bestStreak', longestStreakOverall);
+    } catch (error) {
+      console.error("Error loading streak history:", error);
+    }
+  };
 
   const playSound = async () => {
     const { sound } = await Audio.Sound.createAsync(
@@ -158,6 +205,73 @@ export default function App() {
   const triggerVibration = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
+
+// Hämtar streakhistorik från AsyncStorage
+const getStreakHistory = async () => {
+  try {
+    const history = await AsyncStorage.getItem('streakHistory');
+    return history ? JSON.parse(history) : []; // Om ingen historik finns, returnera en tom lista
+  } catch (error) {
+    console.error("Error fetching streak history:", error);
+    return [];
+  }
+};
+
+// Sparar streakhistorik i AsyncStorage
+const saveStreakHistory = async (history) => {
+  try {
+    await AsyncStorage.setItem('streakHistory', JSON.stringify(history));
+    console.log("Streak history saved:", history);
+  } catch (error) {
+    console.error("Error saving streak history:", error);
+  }
+};
+
+// Lägg till en ny streak i historiken
+const addStreakToHistory = async (newStreak) => {
+  try {
+    const history = await getStreakHistory();
+    const updatedHistory = [...history, newStreak];
+    await saveStreakHistory(updatedHistory);
+
+    // Kontrollera om den nya streaken är den längsta
+    if (newStreak.length > bestStreak) {
+      setBestStreak(newStreak.length);
+      await saveSetting('bestStreak', newStreak.length);
+    }
+
+    console.log("Streak added to history:", newStreak);
+    loadStreakHistory(); // Uppdatera historiken
+  } catch (error) {
+    console.error("Error adding streak to history:", error);
+  }
+};
+
+const removeStreak = async (id) => {
+  try {
+    const history = await getStreakHistory();
+    const updatedHistory = history.filter((streak) => streak.id !== id); // Behåll bara streaks som inte matchar id
+    await saveStreakHistory(updatedHistory);
+    setStreakHistory(updatedHistory); // Uppdatera state
+    console.log(`Streak med ID ${id} togs bort.`);
+  } catch (error) {
+    console.error("Error removing streak:", error);
+  }
+};
+
+const editStreak = async (id, updatedStreak) => {
+  try {
+    const history = await getStreakHistory();
+    const updatedHistory = history.map((streak) =>
+      streak.id === id ? { ...streak, ...updatedStreak } : streak
+    );
+    await saveStreakHistory(updatedHistory);
+    setStreakHistory(updatedHistory); // Uppdatera state
+    console.log(`Streak med ID ${id} har uppdaterats.`);
+  } catch (error) {
+    console.error("Error editing streak:", error);
+  }
+};
   
 
   const streakRef = useRef(null);
@@ -295,19 +409,32 @@ export default function App() {
 // Nollställ streak-count
 const resetstreakCount = async (isAutomatic = false) => {
   if (streakCount > bestStreak) {
-     setBestStreak(streakCount);
-     await saveSetting('bestStreak', streakCount);
+    setBestStreak(streakCount);
+    await saveSetting('bestStreak', streakCount);
   }
-  
+
+  // Lägg till den aktuella streaken i historiken
+  if (streakCount > 0) {
+    const completedStreak = {
+      id: Date.now().toString(), // Unikt ID baserat på tid
+      startDate: streakStartDate ? new Date(streakStartDate).toLocaleDateString('sv-SE') : 'Okänt',
+      endDate: new Date().toLocaleDateString('sv-SE'),
+      length: streakCount,
+    };
+    console.log("Sparar automatiskt streak i historik:", completedStreak);
+    await addStreakToHistory(completedStreak);
+    loadStreakHistory(); // Uppdaterar visningen
+  }
+
   // Förhindra återställning om det inte är nödvändigt
   if (streakCount === 0) {
-     console.log('Streak är redan 0, ingen återställning behövs.');
-     return;
+    console.log('Streak är redan 0, ingen återställning behövs.');
+    return;
   }
 
   setStreakCount(0);
   setIsRunLoggedToday(false);
-  
+
   setStreakStartDate(null); // eller new Date() om du föredrar att visa dagens datum tills en ny streak startar
   await saveSetting('streakStartDate', '');
   await saveSetting('streakCount', 0);
@@ -315,9 +442,9 @@ const resetstreakCount = async (isAutomatic = false) => {
   await saveSetting('runLoggedDate', '');
 
   if (isAutomatic) {
-     setEncouragementVisible(true);
+    setEncouragementVisible(true);
   } else {
-     Alert.alert('Streak nollställd', 'Din streak har blivit nollställd.');
+    Alert.alert('Streak nollställd', 'Din streak har blivit nollställd.');
   }
 };
 
@@ -425,6 +552,29 @@ if (streakCount === 0) {
     setRandomQuote();
     checkDate();
   }, [activityMode]);
+
+  useEffect(() => {
+    loadStreakHistory();
+  }, []);
+
+  useEffect(() => {
+    const checkForNewVersion = async () => {
+      const isNewVersion = await checkAppVersion();
+      if (isNewVersion) {
+        // Visa popup med information om nya funktioner
+        Alert.alert(
+          'Ny Uppdatering!',
+          'Här är de nya funktionerna i appen:\n\n' +
+            '- Nytt historiksystem för streaks\n' +
+            '- Förbättrad design\n' +
+            '- Fler alternativ för aktiviteter\n' +
+            '- Och mycket mer!',
+          [{ text: 'OK', onPress: () => console.log('Popup visad för ny version') }]
+        );
+      }
+    };
+    checkForNewVersion();
+  }, []);
 
   useEffect(() => {
 
@@ -605,6 +755,8 @@ if (streakCount === 0) {
         }
       }
 
+      await loadStreakHistory();
+
     } catch (e) {
       console.error('Failed to load settings.', e);
     }
@@ -761,7 +913,7 @@ const notificationContent = isActivityLogged
     const currentDate = new Date().toDateString();
     const savedRunLoggedDate = await AsyncStorage.getItem('runLoggedDate');
     const encouragementShown = await AsyncStorage.getItem('encouragementShown');
-    
+  
     console.log('Kontrollerar datum:', currentDate);
     console.log('Senast loggad datum:', savedRunLoggedDate);
     
@@ -949,6 +1101,7 @@ const notificationContent = isActivityLogged
     MoveStreak
   </Text>
 </Animatable.View>
+
 
           {showBestStreak && (
             <Animatable.View animation="fadeIn" duration={1500} style={darkTheme ? styles.darkBestStreakCard : styles.bestStreakCard}>
@@ -1313,6 +1466,164 @@ const notificationContent = isActivityLogged
           <Text style={[styles.copyright, darkTheme && styles.darkHeaderFooterText]}>© Andreas Selin 2024</Text>
         </View>
       </View>
+
+      <TouchableOpacity
+  style={{
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#3E4A89',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
+  }}
+  onPress={() => setHistoryModalVisible(true)}
+>
+  <Icon name="history" size={30} color="#FFF" />
+</TouchableOpacity>
+
+<Modal
+  animationType="slide"
+  transparent={true}
+  visible={historyModalVisible}
+  onRequestClose={() => setHistoryModalVisible(false)}
+>
+  <View style={styles.centeredView}>
+    <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
+    <Text style={[styles.historyHeader, darkTheme && styles.darkText]}>Din Streak-historik</Text>
+
+    <FlatList
+  data={streakHistory}
+  keyExtractor={(item) => item.id}
+  renderItem={({ item }) => {
+    const startDate = new Date(item.startDate).toLocaleDateString('sv-SE');
+    const endDate = new Date(item.endDate).toLocaleDateString('sv-SE');
+    const start = new Date(item.startDate);
+    const end = new Date(item.endDate);
+    const lengthInDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    return (
+      <View style={styles.historyCard}>
+        <Text style={styles.historyDateText}>{startDate} - {endDate}</Text>
+        <Text style={styles.historyLengthText}>{lengthInDays} dagar</Text>
+        <TouchableOpacity
+          style={styles.historyDeleteButton}
+          onPress={() => removeStreak(item.id)}
+        >
+          <Text style={styles.historyDeleteButtonText}>Ta bort</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }}
+  contentContainerStyle={{ paddingVertical: 20 }}
+  showsVerticalScrollIndicator={false}
+  ListEmptyComponent={() => (
+    <View style={styles.emptyContainer}>
+      <Icon name="history" size={50} color="#ccc" />
+      <Text style={styles.emptyText}>Ingen historik än. Logga en streak för att komma igång!</Text>
+    </View>
+  )}
+/>
+
+<Modal
+  animationType="slide"
+  transparent={true}
+  visible={addModalVisible}
+  onRequestClose={() => setAddModalVisible(false)}
+>
+  <View style={styles.centeredView}>
+    <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
+      <Text style={[styles.modalText, darkTheme && styles.darkText]}>Lägg till en streak</Text>
+      
+      <Text style={{ marginBottom: 10, fontWeight: 'bold', color: darkTheme ? '#fff' : '#000' }}>Startdatum:</Text>
+      <TouchableOpacity
+  style={{ padding: 10, backgroundColor: '#ddd', borderRadius: 5, marginBottom: 10 }}
+  onPress={() => setStartDatePickerVisible(true)}
+>
+  <Text style={{ color: '#333', fontSize: 16 }}>
+    Startdatum: {newStartDate ? new Date(newStartDate).toLocaleDateString('sv-SE') : 'Välj datum'}
+  </Text>
+</TouchableOpacity>
+
+<DateTimePickerModal
+  isVisible={isStartDatePickerVisible}
+  mode="date"
+  onConfirm={(date) => {
+    setNewStartDate(date);
+    setStartDatePickerVisible(false);
+  }}
+  onCancel={() => setStartDatePickerVisible(false)}
+/>
+
+<TouchableOpacity
+  style={{ padding: 10, backgroundColor: '#ddd', borderRadius: 5, marginBottom: 10 }}
+  onPress={() => setEndDatePickerVisible(true)}
+>
+  <Text style={{ color: '#333', fontSize: 16 }}>
+    Slutdatum: {newEndDate ? new Date(newEndDate).toLocaleDateString('sv-SE') : 'Välj datum'}
+  </Text>
+</TouchableOpacity>
+
+<DateTimePickerModal
+  isVisible={isEndDatePickerVisible}
+  mode="date"
+  onConfirm={(date) => {
+    setNewEndDate(date);
+    setEndDatePickerVisible(false);
+  }}
+  onCancel={() => setEndDatePickerVisible(false)}
+/>
+
+      <TouchableOpacity
+        style={[styles.button, styles.buttonConfirm]}
+        onPress={async () => {
+          const diffInMs = new Date(newEndDate) - new Date(newStartDate);
+          const days = Math.ceil(diffInMs / (1000 * 60 * 60 * 24)) + 1;
+          await addStreakToHistory({
+            id: Date.now().toString(),
+            startDate: newStartDate.toDateString(),
+            endDate: newEndDate.toDateString(),
+            length: days,
+          });
+          setAddModalVisible(false);
+          loadStreakHistory();
+        }}
+      >
+        <Text style={styles.textStyle}>Lägg till</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.buttonCancel]}
+        onPress={() => setAddModalVisible(false)}
+      >
+        <Text style={styles.textStyle}>Avbryt</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+<TouchableOpacity
+  style={{ padding: 10, backgroundColor: '#28a745', borderRadius: 5, marginBottom: 10, alignSelf: 'center' }}
+  onPress={() => setAddModalVisible(true)}
+>
+  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Lägg till</Text>
+</TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.button, styles.buttonCancel]}
+        onPress={() => setHistoryModalVisible(false)}
+      >
+        <Text style={styles.textStyle}>Stäng</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
     </ImageBackground>
   );
 }
@@ -1335,6 +1646,47 @@ const styles = StyleSheet.create({
     paddingVertical: hp('1%'),
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: wp('2%'),
+  },
+
+  historyCard: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 10,
+    width: '95%',
+    alignSelf: 'center',
+  },
+  historyInfo: {
+    flex: 1,
+  },
+  historyDateText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3E4A89',
+  },
+  historyLengthText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  historyDeleteButton: {
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+    backgroundColor: '#f44336',
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  historyDeleteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 
   backgroundButtonContainer: {
@@ -1391,6 +1743,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
   },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+
   activeActivityButtonContainer: {
     borderWidth: wp('0.75%'),
     borderColor: '#28a745',
@@ -1441,6 +1807,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     alignSelf: 'center',
     opacity: 0.7,
+  },
+
+  historyHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#3E4A89',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 
   streakContainer: {
