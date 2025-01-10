@@ -256,6 +256,17 @@ export default function App() {
     console.log('Popupens synlighet:', modalVisible);
   }, [modalVisible]);
 
+  // Lägg till denna useEffect högst upp med andra useEffect-hooks
+useEffect(() => {
+  if (addModalVisible) {
+    const yesterday = new Date(Date.now() - 2 * 86400000);
+    const twoDaysAgo = new Date(Date.now() - (3 * 86400000));
+    
+    setNewStartDate(twoDaysAgo);
+    setNewEndDate(yesterday);
+  }
+}, [addModalVisible]);
+
   useEffect(() => {
     return sound
       ? () => {
@@ -1093,9 +1104,7 @@ if (streakCount === 0) {
     setNotificationActive(newNotificationState);
     await saveSetting('notificationActive', newNotificationState);
   
-    if (newNotificationState) {
-      await scheduleDailyNotification();
-    } else {
+    if (!newNotificationState) {
       await Notifications.cancelAllScheduledNotificationsAsync();
       console.log("Alla tidigare notiser har rensats.");
     }
@@ -1784,6 +1793,8 @@ const shareRunstreak = async () => {
 <DateTimePickerModal
   isVisible={isStartDatePickerVisible}
   mode="date"
+  date={newStartDate} 
+  maximumDate={new Date(Date.now() - (3 * 86400000))} //  (3 dagar sedan)
   onConfirm={(date) => {
     setNewStartDate(date);
     setStartDatePickerVisible(false);
@@ -1803,6 +1814,9 @@ const shareRunstreak = async () => {
 <DateTimePickerModal
   isVisible={isEndDatePickerVisible}
   mode="date"
+  date={newEndDate} 
+  maximumDate={new Date(Date.now() - ( 2 * 86400000))} // Igår (1 dag sedan)
+  minimumDate={newStartDate} // Kan inte välja datum före startdatum
   onConfirm={(date) => {
     setNewEndDate(date);
     setEndDatePickerVisible(false);
@@ -1837,6 +1851,8 @@ const shareRunstreak = async () => {
     </View>
   </View>
 </Modal>
+
+
 
 <TouchableOpacity
   style={{ padding: 10, backgroundColor: '#28a745', borderRadius: 5, marginBottom: 10, alignSelf: 'center' }}
