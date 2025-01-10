@@ -2,7 +2,7 @@
   "expo": {
     "name": "MoveStreak",
     "slug": "movestreak",
-    "version": "1.0.32",
+    "version": "1.0.37",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -13,11 +13,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourname.runstreakapp",
-      "buildNumber": "33",
+      "buildNumber": "37",
       "infoPlist": {
         "CFBundleDisplayName": "MoveStreak",
         "CFBundleLocalizations": ["sv"],
-        "CFBundleDevelopmentRegion": "sv"
+        "CFBundleDevelopmentRegion": "sv",
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -35,7 +36,14 @@
       }
     },
     "plugins": [
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
+        }
+      ]
     ],
     "owner": "riizpan",
     "assetBundlePatterns": [

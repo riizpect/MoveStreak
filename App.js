@@ -26,6 +26,8 @@ function calculateDateDifference(startDate, endDate) {
   return { years, months, days };
 }
 
+let isSchedulingNotification = false; // Global variabel för att förhindra dubblettschemaläggningar
+
 // Importera nödvändiga moduler och komponenter
 import React, { useEffect, useState, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -48,6 +50,16 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Insights from 'expo-insights';
+import LogButton from './LogButton';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,    // För att visa banner om appen är i förgrunden
+    shouldPlaySound: true,    // Kör ljud om du vill
+    shouldSetBadge: false,
+  }),
+});
+
 
 import * as Application from 'expo-application';
 
@@ -130,8 +142,8 @@ export default function App() {
   const [encouragementVisible, setEncouragementVisible] = useState(false);
   const [encouragementShown, setEncouragementShown] = useState(false);
   const [dateDifference, setDateDifference] = useState({ years: 0, months: 0, days: 0 });
-  const [streakCount, setStreakCount] = useState(5);
-  const [lastCheckedDate, setLastCheckedDate] = useState(new Date().toDateString());
+  const [streakCount, setStreakCount] = useState(0);
+  const [lastCheckedDate, setLastCheckedDate] = useState(new Date().toLocaleDateString());
   const [showFullDate, setShowFullDate] = useState(false);
   const [notificationTime, setNotificationTime] = useState(new Date());
   const [tempNotificationTime, setTempNotificationTime] = useState(new Date());
@@ -168,23 +180,53 @@ export default function App() {
   const [isEndDatePickerVisible, setEndDatePickerVisible] = useState(false);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
 
+  const clearAsyncStorage = async () => {
+    try {
+      await AsyncStorage.clear();
+      console.log('AsyncStorage rensat.');
+      Alert.alert('Rensning klar', 'Alla lagrade data i AsyncStorage har rensats.');
+    } catch (error) {
+      console.error('Fel vid rensning av AsyncStorage:', error);
+    }
+  };
+  
   const loadStreakHistory = async () => {
     try {
       const history = await getStreakHistory();
+      console.log("Streak-historik laddad i loadStreakHistory:", history);
       setStreakHistory(history);
   
       // Kontrollera längsta streak från historiken
       let longestStreakFromHistory = 0;
       history.forEach((streak) => {
+        console.log("Streak i historik:", streak);
         if (streak.length > longestStreakFromHistory) {
           longestStreakFromHistory = streak.length;
         }
       });
-  
-      // Jämför med den aktuella streaken
-      const longestStreakOverall = Math.max(longestStreakFromHistory, streakCount);
-      setBestStreak(longestStreakOverall);
-      await saveSetting('bestStreak', longestStreakOverall);
+
+      
+     // Om historiken är tom, prioritera nuvarande streak
+     let longestStreakOverall = 0;
+     if (history.length === 0 && streakCount === 0) {
+       longestStreakOverall = 0;
+     } else {
+       const longestStreakFromHistory = Math.max(
+         ...history.map((streak) => streak.length),
+         0
+       );
+       longestStreakOverall = Math.max(longestStreakFromHistory, streakCount);
+     }
+     
+     console.log("Längsta streak från historik eller nuvarande:", longestStreakOverall);
+     
+     if (longestStreakOverall !== bestStreak) {
+       console.log("Uppdaterar bestStreak till:", longestStreakOverall);
+       setBestStreak(longestStreakOverall);
+       await saveSetting("bestStreak", longestStreakOverall);
+     } else {
+       console.log("Behåller bestStreak:", bestStreak);
+     }
     } catch (error) {
       console.error("Error loading streak history:", error);
     }
@@ -199,6 +241,8 @@ export default function App() {
     console.log("Stänger popup");
     setModalVisible(false);
   };
+
+
 
   const playSound = async () => {
     const { sound } = await Audio.Sound.createAsync(
@@ -219,6 +263,13 @@ export default function App() {
         }
       : undefined;
   }, [sound]);
+
+  useEffect(() => {
+    (async () => {
+      await requestNotificationPermission();
+      // ... övrig init-kod ...
+    })();
+  }, []);
 
   const triggerVibration = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -249,6 +300,7 @@ const saveStreakHistory = async (history) => {
 const addStreakToHistory = async (newStreak) => {
   try {
     const history = await getStreakHistory();
+    console.log("Ny streak som sparas:", newStreak);
     const updatedHistory = [...history, newStreak];
     await saveStreakHistory(updatedHistory);
 
@@ -330,17 +382,41 @@ const editStreak = async (id, updatedStreak) => {
   
   
 
-  const testImmediateNotification = async () => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Testnotis",
-        body: "Detta är en testnotis för att kontrollera om notiser fungerar.",
-      },
-      trigger: {
-        seconds: 10, // Notis kommer efter 10 sekunder
-      },
-    });
-    console.log("Test notification scheduled.");
+  const triggerTestNotification = async () => {
+    console.log("triggerTestNotification startar...");
+    
+    // Kontrollera tillstånd för notiser
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) {
+      console.log("Notistillstånd saknas. Avbryter.");
+      return;
+    }
+  
+    // Skapa en exakt triggertid 5 sekunder framåt
+    const now = new Date();
+    const triggerDate = new Date(now.getTime() + 5000); // 5 sekunder framåt
+    console.log("Nuvarande tid:", now);
+    console.log("Planerad triggertid:", triggerDate);
+  
+    try {
+      // Schemalägg notis med exakt tid
+      console.log("Använder trigger.date med värde:", triggerDate.toLocaleString());
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Testnotis",
+          body: "Detta är en testnotis för att kontrollera om tiden fungerar korrekt.",
+        },
+        trigger: {
+          date: triggerDate, // Använd datum istället för sekunder
+        },
+      });
+  
+      console.log("Testnotis schemalagd.");
+      Alert.alert("Notis schemalagd", "En testnotis kommer att visas om 5 sekunder.");
+    } catch (error) {
+      console.error("Fel vid schemaläggning av testnotis:", error);
+      Alert.alert("Fel", "Kunde inte schemalägga testnotis. Kontrollera loggarna.");
+    }
   };
   
 
@@ -368,14 +444,30 @@ const editStreak = async (id, updatedStreak) => {
   };
   
   const handleNotificationDateConfirm = async (date) => {
-    setTempNotificationTime(date);
-    setNotificationTime(date); // Uppdatera direkt den faktiska notificationTime
-    hideNotificationDatePicker();
+    try {
+      console.log("Ny vald tid (lokal):", date.toLocaleString());
   
-    // Spara den nya tiden och uppdatera notisschemaläggningen
-    await saveSetting('notificationTime', date);
-    if (notificationActive) {
-      scheduleDailyNotification();
+      // Validera tiden – om den är i det förflutna, flytta till nästa dag
+      const now = new Date();
+      if (date < now) {
+        console.warn("Vald tid är förfluten, flyttar till nästa dag.");
+        date.setDate(date.getDate() + 1);
+      }
+  
+      // Uppdatera tiden och spara den
+      setTempNotificationTime(date);
+      setNotificationTime(date);
+      hideNotificationDatePicker();
+      await saveSetting('notificationTime', date);
+  
+      // Rensa eventuella gamla notiser och schemalägg den nya
+      if (notificationActive) {
+        console.log("Rensar tidigare notiser och schemalägger ny.");
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        await scheduleDailyNotification();
+      }
+    } catch (error) {
+      console.error("Fel vid hantering av notistid:", error);
     }
   };
   
@@ -386,14 +478,20 @@ const editStreak = async (id, updatedStreak) => {
     if (Device.isDevice) {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
+      
+      console.log("Befintlig status för notiser:", existingStatus);
+  
       if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
+        console.log("Ny status efter förfrågan:", finalStatus);
       }
+  
       if (finalStatus !== 'granted') {
         alert('Du måste tillåta notiser för att aktivera påminnelser!');
         return false;
       }
+      console.log("Notistillstånd beviljat!");
       return true;
     } else {
       alert('Måste använda fysisk enhet för Push Notiser');
@@ -493,9 +591,11 @@ const resetstreakCount = async (isAutomatic = false) => {
     );
   };
 
-  // Nollställ bästa streak
   const resetBestStreak = async () => {
-    const history = await getStreakHistory(); // Hämta historiken
+    // 1. Hämta historiken
+    const history = await getStreakHistory();
+  
+    // 2. Om du har historik kvar, fråga om du verkligen vill radera + hur den ska hanteras
     if (history.length > 0) {
       Alert.alert(
         'Längsta streak ej nollställd',
@@ -504,17 +604,23 @@ const resetstreakCount = async (isAutomatic = false) => {
       return;
     }
   
-    if (streakCount >= bestStreak) {
+    // 3. Nu vet vi att historiken är tom
+    //    => Då vill vi aldrig sätta bestStreak lägre än nuvarande streak.
+    if (streakCount > 0) {
+      // Sätt bestStreak = streakCount
+      setBestStreak(streakCount);
+      await saveSetting('bestStreak', streakCount);
       Alert.alert(
-        'Längsta streak ej nollställd',
-        'Din längsta streak kan inte vara lägre än din nuvarande streak.'
+        'Längsta streak uppdaterad',
+        `Din längsta streak är nu lika med den aktiva streaken: ${streakCount} dagar.`
       );
     } else {
-      setBestStreak(streakCount);
-      saveSetting('bestStreak', streakCount);
+      // Om streakCount också är 0 eller av någon anledning lägre
+      setBestStreak(0);
+      await saveSetting('bestStreak', 0);
       Alert.alert(
         'Längsta streak nollställd',
-        'Din längsta streak har blivit nollställd.'
+        'Du har ingen aktiv streak, så längsta streak är satt till 0.'
       );
     }
   };
@@ -524,7 +630,7 @@ const resetstreakCount = async (isAutomatic = false) => {
 
   //Hantera loggning av 
   const handleLogRun = async (success) => {
-    const todayDateString = new Date().toDateString('sv-SE');
+    const todayDateString = new Date().toLocaleDateString('sv-SE');
   
     console.log('Dagens datum:', todayDateString);
     console.log('Är loggad idag:', isRunLoggedToday);
@@ -534,30 +640,33 @@ const resetstreakCount = async (isAutomatic = false) => {
         Alert.alert('Maximalt antal dagar uppnått', 'Du kan inte logga fler än 9999 dagar.');
         return;
       }
+    
       const newStreakCount = streakCount + 1;
       setStreakCount(newStreakCount);
       setIsRunLoggedToday(true);
       await saveSetting('isRunLoggedToday', true);
       await saveSetting('runLoggedDate', todayDateString);
       await saveSetting('streakCount', newStreakCount);
-
+    
       console.log('Aktivitet loggad idag:', isRunLoggedToday);
-  
+    
       if (newStreakCount > bestStreak) {
         setBestStreak(newStreakCount);
         await saveSetting('bestStreak', newStreakCount);
       }
-  
-      streakRef.current.rotate();
-      await saveSetting('runLoggedDate', todayDateString);
-      await saveSetting('streakCount', newStreakCount);
+    
+      // 🚨 Nytt: Kontroll av streakRef innan rotation
+      if (streakRef.current) {
+        console.log('Roterar streak-cirkeln...'); // Ny logg för felsökning
+        streakRef.current.rotate(); // Roterar streak-cirkeln
+      } else {
+        console.warn('streakRef är inte kopplad.'); // Ny varning om streakRef inte är kopplad
+      }
+    
       setLogModalVisible(false);
-
-         // Spela upp ljud
-    playSound();
-
-  // Trigger vibration
-    triggerVibration();
+      playSound();
+      triggerVibration();
+    
 
 if (streakCount === 0) {
   const todayDate = new Date();
@@ -573,13 +682,14 @@ if (streakCount === 0) {
       setLogModalVisible(false);
     }
 
-    await scheduleDailyNotification();
+    // await scheduleDailyNotification();
 
   };
   
 
   // Effekt-hook som körs när komponenten laddas
   useEffect(() => {
+    console.log("App laddas, registrerar för push-notiser...");
     registerForPushNotificationsAsync();
     loadSettings();
     setRandomQuote();
@@ -604,7 +714,7 @@ if (streakCount === 0) {
           'Här är de nya funktionerna i appen:\n\n' +
             '- Nytt historiksystem för streaks\n' +
             '- Förbättrad design\n' +
-            '- Fler alternativ för aktiviteter\n' +
+            '- Snyggare Logga-knapp\n' +
             '- Och mycket mer!',
           [{ text: 'OK', onPress: () => console.log('Popup visad för ny version') }]
         );
@@ -620,95 +730,138 @@ if (streakCount === 0) {
       checkDate();
     }, 60000); // Check every minute (60000 ms)
 
-    const handleAppStateChange = (nextAppState) => {
-      if (nextAppState === 'active') {
-        checkDate();
-      }
-    };
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+      const handleAppStateChange = (nextAppState) => {
+        if (nextAppState === 'active') {
+          console.log('Appen är aktiv igen. Laddar inställningar och kontrollerar datum...');
+          try {
+            loadSettings(); // Ladda sparade inställningar
+            checkDate();    // Kontrollera och uppdatera datumstatus
+          } catch (error) {
+            console.error('Fel vid hantering av appens tillståndsändring:', error);
+          }
+        }
+      };
+    
+      const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+      return () => {
+        console.log('Rensar appens tillståndsändringslyssnare...');
+        clearInterval(checkDateInterval); // Rensa intervallet
+        if (subscription) subscription.remove(); // Rensa prenumerationen
+      };
+    }, []);
 
-    return () => {
-      clearInterval(checkDateInterval); // Clear interval on component unmount
-      subscription.remove();
-    };
-  }, []);
+    useEffect(() => {
+      const subscription = Notifications.addNotificationReceivedListener(notification => {
+        console.log("Notis mottagen:", notification);
+      });
+    
+      // Städa upp efteråt för att undvika minnesläckor
+      return () => {
+        subscription.remove();
+      };
+    }, []);
 
 
   // Registrera för pushnotiser
   const registerForPushNotificationsAsync = async () => {
-    if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+    try {
+      if (Device.isDevice) {
+        console.log("Kontrollerar push-notisbehörighet...");
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        console.log("Befintlig status:", existingStatus);
+  
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+          console.log("Ny status efter förfrågan:", finalStatus);
+        }
+  
+        if (finalStatus !== 'granted') {
+          alert('Du måste tillåta notiser för att aktivera påminnelser!');
+          return false;
+        }
+        console.log("Notisbehörighet godkänd.");
+        return true;
+      } else {
+        alert('Måste använda fysisk enhet för Push Notiser');
+        return false;
       }
-      if (finalStatus !== 'granted') {
-        alert('You need to enable notifications for this app to work properly!');
-        return;
-      }
-    } else {
-      alert('Must use physical device for Push Notifications');
+    } catch (error) {
+      console.error("Fel vid registrering av push-notiser:", error);
+      return false;
     }
   };
 
+
   const loadSettings = async () => {
     try {
+      // Ladda encouragement-visning
       const encouragementShown = await AsyncStorage.getItem('encouragementShown');
       setEncouragementShown(encouragementShown === 'true');
       console.log('encouragementShown:', encouragementShown);
   
+      // Hantering av notiser
       const timeString = await AsyncStorage.getItem('notificationTime');
       if (timeString !== null) {
         const savedTime = new Date(timeString);
+        console.log('Laddad notificationTime:', savedTime);
+  
+        // Validera att tiden är giltig och i framtiden
+        if (savedTime < new Date()) {
+          console.warn('Sparad tid är förfluten, flyttar till nästa dag.');
+          savedTime.setDate(savedTime.getDate() + 1);
+        }
+  
         setNotificationTime(savedTime);
         setTempNotificationTime(savedTime);
-        setNotificationActive(true);
+      } else {
+        console.log('Ingen notificationTime sparad.');
       }
-      console.log('notificationTime:', timeString);
   
       const savedNotificationActive = await AsyncStorage.getItem('notificationActive');
-      if (savedNotificationActive !== null) {
-        const isActive = savedNotificationActive === 'true';
-        setNotificationActive(isActive);
-        if (isActive) {
-          await scheduleDailyNotification(); // Schemalägg notiser om de är aktiva
-        }
-      }
-      console.log('notificationActive:', savedNotificationActive);
-
-          // Om notiser är aktiva, schemalägg dem
-    if (savedNotificationActive === 'true') {
-      scheduleDailyNotification();
-    }
+      const isActive = savedNotificationActive === 'true';
+      setNotificationActive(isActive);
+      console.log('notificationActive:', isActive);
   
+      if (isActive && notificationTime) {
+        console.log('Schemalägger notis vid inladdning...');
+        await scheduleDailyNotification();
+      }
+  
+      // Ladda tema
       const theme = await AsyncStorage.getItem('darkTheme');
       setDarkTheme(theme === 'true');
       console.log('darkTheme:', theme);
-
+  
+      // Ladda streak-startdatum
       const savedStreakStartDate = await AsyncStorage.getItem('streakStartDate');
-      
       if (savedStreakStartDate !== null) {
         setStreakStartDate(new Date(savedStreakStartDate));
-         } else {
+      } else {
         setStreakStartDate(null); // Sätt till null om ingen startdatum finns
       }
   
+      // Ladda total distans
       const totalDistance = await AsyncStorage.getItem('showTotalDistance');
       setShowTotalDistance(totalDistance !== 'false');
       console.log('showTotalDistance:', totalDistance);
   
+      // Ladda motivationscitat
       const motivationalQuote = await AsyncStorage.getItem('showMotivationalQuote');
       setShowMotivationalQuote(motivationalQuote !== 'false');
       console.log('showMotivationalQuote:', motivationalQuote);
   
+      // Ladda längsta streak
       const bestStreakString = await AsyncStorage.getItem('bestStreak');
       if (bestStreakString !== null) {
         setBestStreak(parseInt(bestStreakString));
       }
       console.log('bestStreak:', bestStreakString);
   
+      // Ladda övriga inställningar
       const showBestStreakString = await AsyncStorage.getItem('showBestStreak');
       setShowBestStreak(showBestStreakString !== 'false');
       console.log('showBestStreak:', showBestStreakString);
@@ -716,10 +869,10 @@ if (streakCount === 0) {
       const showRetroactiveButtonString = await AsyncStorage.getItem('showRetroactiveButton');
       setShowRetroactiveButton(showRetroactiveButtonString !== 'false');
       console.log('showRetroactiveButton:', showRetroactiveButtonString);
-
+  
       const showShareButtonString = await AsyncStorage.getItem('showShareButton');
-    setShowShareButton(showShareButtonString !== 'false');
-    console.log('showShareButton:', showShareButtonString);
+      setShowShareButton(showShareButtonString !== 'false');
+      console.log('showShareButton:', showShareButtonString);
   
       const savedLastCheckedDate = await AsyncStorage.getItem('lastCheckedDate');
       if (savedLastCheckedDate !== null) {
@@ -727,15 +880,14 @@ if (streakCount === 0) {
       }
       console.log('lastCheckedDate:', savedLastCheckedDate);
   
- const savedRunLoggedDate = await AsyncStorage.getItem('runLoggedDate');
+      const savedRunLoggedDate = await AsyncStorage.getItem('runLoggedDate');
       const todayDateString = new Date().toDateString('sv-SE');
       const savedRunLoggedDateString = savedRunLoggedDate ? new Date(savedRunLoggedDate).toLocaleDateString('sv-SE') : null;
       if (savedRunLoggedDateString !== null && savedRunLoggedDateString === todayDateString) {
         setIsRunLoggedToday(true);
         await saveSetting('isRunLoggedToday', true);
         console.log(`loadSettings - Run logged today: ${savedRunLoggedDateString}`);
-    }
-    
+      }
   
       const savedStreakCount = await AsyncStorage.getItem('streakCount');
       if (savedStreakCount !== null) {
@@ -791,23 +943,26 @@ if (streakCount === 0) {
             setBackgroundImage(grassBackground);
         }
       }
-
+  
       await loadStreakHistory();
-
+  
     } catch (e) {
       console.error('Failed to load settings.', e);
     }
-  };
-  
+  };  
   
 
-  // Spara inställningar i AsyncStorage
   const saveSetting = async (key, value) => {
     try {
-      await AsyncStorage.setItem(key, value.toString());
-      console.log(`Saved setting ${key} with value ${value}`);
+      const currentValue = await AsyncStorage.getItem(key);
+      if (currentValue !== value.toString()) {
+        console.log(`Sparar inställning ${key} med värde ${value}`);
+        await AsyncStorage.setItem(key, value.toString());
+      } else {
+        console.log(`Inställning ${key} är redan ${value}. Ingen sparning behövs.`);
+      }
     } catch (e) {
-      console.error(`Failed to save setting ${key}.`, e);
+      console.error(`Misslyckades med att spara ${key}.`, e);
     }
   };
   
@@ -836,45 +991,48 @@ if (streakCount === 0) {
   };
   
 
-  // Schemalägg dagliga notiser
-  const scheduleDailyNotification = async () => {
-    console.log("Scheduling daily notification. Notification active:", notificationActive);
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log("All notifications canceled.");
-  
-    if (!notificationActive) {
-      console.log("Notifications are not active. Exiting schedule function.");
+    let isSchedulingNotification = false; // Om du vill behålla denna variabel globalt kan du lägga den utanför funktionen
+
+    const scheduleDailyNotification = async () => {
+      try {
+            // Validera att notificationTime är korrekt
+    if (!notificationTime || isNaN(notificationTime.getTime())) {
+      console.error("Fel: notificationTime är ogiltig:", notificationTime);
       return;
     }
-  
-    const trigger = new Date(notificationTime);
-    trigger.setDate(new Date().getDate());
-    if (trigger < new Date()) {
-      trigger.setDate(trigger.getDate() + 1);
-    }
-  
-    console.log(`Scheduling notification for ${trigger.getHours()}:${trigger.getMinutes()}`);
-  
-    const isActivityLogged = (await AsyncStorage.getItem('isRunLoggedToday') || 'false') === 'true';
-const notificationContent = isActivityLogged
-    ? { title: 'Bra jobbat!', body: 'Du har redan loggat din aktivitet för idag. Fortsätt så!' }
-    : { title: 'Daglig påminnelse', body: 'Glöm inte att logga din streak i appen!' };
 
-    console.log(`Scheduling notification for ${trigger.getHours()}:${trigger.getMinutes()}`);
-
-    await Notifications.scheduleNotificationAsync({
-      content: notificationContent,
-      trigger: {
-        hour: trigger.getHours(),
-        minute: trigger.getMinutes(),
-        repeats: true,
-      },
-    });
-  
-    console.log("Notification scheduled.");
-  };
-  
-  
+    console.log("Schemalägger daglig notis på:", notificationTime.toLocaleString());
+        await Notifications.cancelAllScheduledNotificationsAsync();
+    
+        if (!notificationTime) {
+          console.log("Ingen notificationTime vald. Avbryter schemaläggning.");
+          return;
+        }
+    
+        const trigger = new Date();
+        trigger.setHours(notificationTime.getHours());
+        trigger.setMinutes(notificationTime.getMinutes());
+        trigger.setSeconds(0);
+    
+        if (trigger < new Date()) {
+          trigger.setDate(trigger.getDate() + 1); // Flytta till nästa dag om tiden redan passerat
+        }
+    
+        console.log("Schemalägger notis för exakt tid:", trigger.toLocaleString());
+    
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Dags för din aktivitet!",
+            body: "Kom ihåg att logga din streak.",
+          },
+          trigger,
+        });
+    
+        console.log("Daglig notis schemalagd:", trigger.toLocaleString());
+      } catch (error) {
+        console.error("Fel vid schemaläggning av notis:", error);
+      }
+    };
   
 
   // Schemalägg notis för streak
@@ -895,15 +1053,25 @@ const notificationContent = isActivityLogged
     }
   };
 
-  // Bekräfta tidändring för notiser
-  const confirmTime = () => {
-    console.log("Tid bekräftad:", tempNotificationTime);
-    setNotificationTime(tempNotificationTime);
-    setNotificationActive(true);
-    saveSetting('notificationTime', tempNotificationTime);
-    saveSetting('notificationActive', true);
-    scheduleDailyNotification();
-    setSettingsVisible(true);
+  const confirmTime = async () => {
+    console.log("Bekräftar tid:", tempNotificationTime);
+  
+    // 1. Skapa en lokal "nyTid" som håller den nya tidpunkten
+    const nyTid = new Date(tempNotificationTime);
+  
+    // 2. Sätt state, men för säkerhets skull också spara i en lokal var:
+    setNotificationTime(nyTid);
+  
+    // 3. Spara i AsyncStorage
+    await saveSetting("notificationTime", nyTid);
+  
+    // 4. Om notiser är aktiva, schemalägg
+    if (notificationActive) {
+      console.log("Bekräftar och schemalägger notisen med nyTid:", nyTid.toString());
+      await scheduleDailyNotification(nyTid); // ← passera in “nyTid” som argument
+    }
+  
+    // 5. Stäng modal
     handleCloseModal();
   };
 
@@ -911,6 +1079,12 @@ const notificationContent = isActivityLogged
   const cancelTime = () => {
     setSettingsVisible(true);
     handleCloseModal();
+  };
+
+  const handleTimePickerConfirm = (date) => {
+    console.log("Tid vald (endast temp):", date.toLocaleString());
+    setTempNotificationTime(date);
+    hideNotificationDatePicker();
   };
 
   // Växla notisstatus
@@ -926,6 +1100,7 @@ const notificationContent = isActivityLogged
       await scheduleDailyNotification();
     } else {
       await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log("Alla tidigare notiser har rensats.");
     }
   };
   
@@ -933,7 +1108,7 @@ const notificationContent = isActivityLogged
   useEffect(() => {
     if (notificationActive) {
       console.log("Scheduling daily notification. Notification active:", notificationActive);
-      scheduleDailyNotification();
+  //    scheduleDailyNotification();
     }
   }, [notificationActive]);
   
@@ -942,7 +1117,7 @@ const notificationContent = isActivityLogged
 
   // Kontrollera datum för att återställa streak vid behov
   const checkDate = async () => {
-    const currentDate = new Date().toDateString();
+    const currentDate = new Date().toLocaleDateString('sv-SE');
     const savedRunLoggedDate = await AsyncStorage.getItem('runLoggedDate');
     const encouragementShown = await AsyncStorage.getItem('encouragementShown');
   
@@ -981,8 +1156,9 @@ const notificationContent = isActivityLogged
     setAllowLogToday(allowLog);
     console.log('allowLogToday:', allowLog);
   
-    await scheduleDailyNotification();
+    // await scheduleDailyNotification();
   };
+
   
   
   
@@ -1151,12 +1327,7 @@ const shareRunstreak = async () => {
             </Animatable.View>
           )}
 
-          <TouchableOpacity
-            style={[styles.logButton, darkTheme && styles.darkButton]}
-            onPress={() => setLogModalVisible(true)}
-          >
-            <Text style={[styles.logButtonText, darkTheme && styles.darkLogButtonText]}>Logga</Text>
-          </TouchableOpacity>
+<LogButton onLog={handleLogRun} darkTheme={darkTheme} />
 
           {showMotivationalQuote && (
             <View style={styles.quoteContainer}>
@@ -1170,7 +1341,7 @@ const shareRunstreak = async () => {
             style={[styles.syncButton, darkTheme && styles.darkSyncButton, styles.moveDownButton]}
             onPress={() => setRetroactiveModalVisible(true)}
           >
-            <Text style={darkTheme && styles.darkSyncButtonText}>Har du redan en tidigare streak?</Text>
+            <Text style={darkTheme && styles.darkSyncButtonText}>Har du redan en nuvarande streak?</Text>
           </TouchableOpacity>
           )}
 
@@ -1192,6 +1363,8 @@ const shareRunstreak = async () => {
 <DateTimePickerModal
   isVisible={isRetroactiveDatePickerVisible}
   mode="date"
+  locale="sv"
+  is24Hour={true}
   onConfirm={handleRetroactiveDateConfirm}
   onCancel={hideRetroactiveDatePicker}
   maximumDate={today}
@@ -1426,19 +1599,15 @@ const shareRunstreak = async () => {
       </View>
 
 
-      <TouchableOpacity
-  style={[styles.button, styles.buttonReset]}
-  onPress={confirmResetStreakCount}
->
-  <Text style={styles.textReset}>Nollställ din nuvarande streak</Text>
-</TouchableOpacity>
+      <View style={styles.buttonsContainer}>
+  <TouchableOpacity style={styles.button} onPress={confirmResetStreakCount}>
+    <Text style={styles.buttonText}>Återställ streak</Text>
+  </TouchableOpacity>
 
-<TouchableOpacity
-  style={[styles.button, styles.buttonReset]}
-  onPress={confirmResetBestStreak}
->
-  <Text style={styles.textReset}>Nollställ längsta streak</Text>
-</TouchableOpacity>
+  <TouchableOpacity style={styles.button} onPress={confirmResetBestStreak}>
+    <Text style={styles.buttonText}>Återställ längsta streak</Text>
+  </TouchableOpacity>
+</View>
 
       <View style={styles.closeButtonWrapper}>
   <TouchableOpacity
@@ -1468,6 +1637,9 @@ const shareRunstreak = async () => {
 >
   <Text style={styles.textStyle}>Välj tid</Text>
 </TouchableOpacity>
+
+
+
 <DateTimePickerModal
   isVisible={isNotificationDatePickerVisible}
   mode="time"
@@ -1500,12 +1672,30 @@ const shareRunstreak = async () => {
               containerStyle={styles.buttonContainer}
             />
           </View>
+
+          
           )}
         </View>
+
+        {/* <View style={{ margin: 20 }}>
+
+        <Button
+  title="Testa Notis"
+  onPress={() => {
+    console.log("Testknapp tryckt");
+    triggerTestNotification();
+  }}
+/>
+
+</View> */}
         <View style={[styles.footer, darkTheme && styles.darkHeaderFooter]}>
-          <Text style={[styles.copyright, darkTheme && styles.darkHeaderFooterText]}>© Andreas Selin 2024</Text>
+          <Text style={[styles.copyright, darkTheme && styles.darkHeaderFooterText]}>© Andreas Selin 2025</Text>
         </View>
       </View>
+
+      
+
+      
 
       <TouchableOpacity
   style={{
@@ -1689,6 +1879,33 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: wp('2%'),
   },
+
+  buttonsContainer: {
+    flexDirection: 'column', // Lägg knapparna vertikalt
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+
+  },
+  button: {
+    width: width * 0.8, // Anpassar bredden till 80% av skärmen
+    paddingVertical: height > 600 ? 15 : 10, // Anpassar höjden beroende på skärmhöjd
+    marginVertical: 10, // Lägg till mellanrum mellan knappar
+    borderRadius: 10, // Rundade hörn
+    backgroundColor: '#42A5F5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5, // För Android-skuggor
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: width > 320 ? 16 : 14, // Anpassar textstorlek beroende på bredd
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+
 
   historyCard: {
     flexDirection: 'column',
@@ -2263,7 +2480,7 @@ dayCountText: {
     marginTop: 20,
   },
   modalView: {
-    zIndex: 9999,
+
     margin: wp('2.5%'),
     backgroundColor: 'white',
     borderRadius: wp('5%'),
