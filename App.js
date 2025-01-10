@@ -826,10 +826,7 @@ if (streakCount === 0) {
       setNotificationActive(isActive);
       console.log('notificationActive:', isActive);
   
-      if (isActive && notificationTime) {
-        console.log('Schemalägger notis vid inladdning...');
-        await scheduleDailyNotification();
-      }
+     
   
       // Ladda tema
       const theme = await AsyncStorage.getItem('darkTheme');
@@ -1106,11 +1103,11 @@ if (streakCount === 0) {
   
   // Lägg till useEffect för att schemalägga dagliga notiser när notificationActive ändras
   useEffect(() => {
-    if (notificationActive) {
+    if (notificationActive && notificationTime) {
       console.log("Scheduling daily notification. Notification active:", notificationActive);
-  //    scheduleDailyNotification();
+     scheduleDailyNotification(notificationTime);
     }
-  }, [notificationActive]);
+  }, [notificationActive, notificationTime]);
   
   
   
