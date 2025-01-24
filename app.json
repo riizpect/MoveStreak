@@ -2,7 +2,7 @@
   "expo": {
     "name": "MoveStreak",
     "slug": "movestreak",
-    "version": "1.0.37",
+    "version": "1.0.40",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -13,26 +13,36 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourname.runstreakapp",
-      "buildNumber": "37",
+      "googleServicesFile": "./ios/GoogleService-Info.plist",
+      "buildNumber": "40",
       "infoPlist": {
         "CFBundleDisplayName": "MoveStreak",
-        "CFBundleLocalizations": ["sv"],
+        "CFBundleLocalizations": [
+          "sv"
+        ],
         "CFBundleDevelopmentRegion": "sv",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
+      "package": "com.movestreak.app",
+      "versionCode": 40,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
+        "foregroundImage": "./assets/adaptiveIcon.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [
+        "NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "13053f4e-146e-4beb-8003-cd74ed67ac3d"
+        "projectId": "9a9a3f7c-0a25-4563-91d8-60a9dffed4f1"
       }
     },
     "plugins": [
@@ -45,7 +55,7 @@
         }
       ]
     ],
-    "owner": "riizpan",
+    "owner": "riizpect",
     "assetBundlePatterns": [
       "assets/*"
     ],

@@ -192,41 +192,61 @@ export default function App() {
   
   const loadStreakHistory = async () => {
     try {
-      const history = await getStreakHistory();
-      console.log("Streak-historik laddad i loadStreakHistory:", history);
+      const history = await getStreakHistory(); // Hämta historiken
+      console.log('Loading history:', history);
+  
       setStreakHistory(history);
   
       // Kontrollera längsta streak från historiken
       let longestStreakFromHistory = 0;
       history.forEach((streak) => {
-        console.log("Streak i historik:", streak);
-        if (streak.length > longestStreakFromHistory) {
-          longestStreakFromHistory = streak.length;
+        const startDate = streak.startDate ? new Date(streak.startDate) : null;
+        const endDate = streak.endDate ? new Date(streak.endDate) : null;
+  
+        // Validera datumen
+        if (!startDate || !endDate || isNaN(startDate) || isNaN(endDate)) {
+          console.warn("Ogiltiga datum i streak:", streak);
+          return; // Hoppa över denna streak om datumen inte är giltiga
+        }
+  
+        // Sätt tiden till midnatt för konsekvens
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+  
+        // Beräkna korrekt längd (inkludera både start och slut)
+        const calculatedLength = Math.ceil(
+          (endDate - startDate) / (1000 * 60 * 60 * 24)
+        ) + 1;
+  
+        if (calculatedLength > longestStreakFromHistory) {
+          longestStreakFromHistory = calculatedLength;
         }
       });
+  
+          // Kontrollera om streakCount är större än det som är sparat
+    const savedStreakCount = await AsyncStorage.getItem("streakCount");
+    const parsedStreakCount = savedStreakCount ? parseInt(savedStreakCount) : 0;
 
-      
-     // Om historiken är tom, prioritera nuvarande streak
-     let longestStreakOverall = 0;
-     if (history.length === 0 && streakCount === 0) {
-       longestStreakOverall = 0;
-     } else {
-       const longestStreakFromHistory = Math.max(
-         ...history.map((streak) => streak.length),
-         0
-       );
-       longestStreakOverall = Math.max(longestStreakFromHistory, streakCount);
-     }
-     
-     console.log("Längsta streak från historik eller nuvarande:", longestStreakOverall);
-     
-     if (longestStreakOverall !== bestStreak) {
-       console.log("Uppdaterar bestStreak till:", longestStreakOverall);
-       setBestStreak(longestStreakOverall);
-       await saveSetting("bestStreak", longestStreakOverall);
-     } else {
-       console.log("Behåller bestStreak:", bestStreak);
-     }
+    // Jämför med nuvarande streak och sätt det längsta värdet
+    const longestStreakOverall = Math.max(
+      longestStreakFromHistory,
+      parsedStreakCount
+    );
+
+    console.log(
+      "Historik längsta streak:",
+      longestStreakFromHistory,
+      "Nuvarande streak:",
+      parsedStreakCount,
+      "Beräknad längsta streak totalt:",
+      longestStreakOverall
+    );
+  
+      if (longestStreakOverall !== bestStreak) {
+        console.log('Uppdaterar bestStreak till:', longestStreakOverall);
+        setBestStreak(longestStreakOverall);
+        await saveSetting('bestStreak', longestStreakOverall); // Spara bestStreak
+      }
     } catch (error) {
       console.error("Error loading streak history:", error);
     }
@@ -255,6 +275,7 @@ export default function App() {
   useEffect(() => {
     console.log('Popupens synlighet:', modalVisible);
   }, [modalVisible]);
+
 
   // Lägg till denna useEffect högst upp med andra useEffect-hooks
 useEffect(() => {
@@ -310,19 +331,32 @@ const saveStreakHistory = async (history) => {
 // Lägg till en ny streak i historiken
 const addStreakToHistory = async (newStreak) => {
   try {
+    // Normalisera datumen till midnatt
+    const startDate = new Date(newStreak.startDate);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(newStreak.endDate);
+    endDate.setHours(0, 0, 0, 0);
+
+    // Beräkna längden
+    const calculatedLength = Math.ceil(
+      (endDate - startDate) / (1000 * 60 * 60 * 24)
+    ) + 1; // +1 för att inkludera både start och slut
+    newStreak.length = calculatedLength;
+
+    console.log("Ny streak som sparas (med normaliserade datum):", newStreak);
+
     const history = await getStreakHistory();
-    console.log("Ny streak som sparas:", newStreak);
     const updatedHistory = [...history, newStreak];
     await saveStreakHistory(updatedHistory);
 
-    // Kontrollera om den nya streaken är den längsta
-    if (newStreak.length > bestStreak) {
-      setBestStreak(newStreak.length);
-      await saveSetting('bestStreak', newStreak.length);
+    if (calculatedLength > bestStreak) {
+      setBestStreak(calculatedLength);
+      await saveSetting("bestStreak", calculatedLength);
     }
 
     console.log("Streak added to history:", newStreak);
-    loadStreakHistory(); // Uppdatera historiken
+    loadStreakHistory();
   } catch (error) {
     console.error("Error adding streak to history:", error);
   }
@@ -331,26 +365,25 @@ const addStreakToHistory = async (newStreak) => {
 const removeStreak = async (id) => {
   try {
     const history = await getStreakHistory();
-    const updatedHistory = history.filter((streak) => streak.id !== id); // Behåll bara streaks som inte matchar id
+    const updatedHistory = history.filter((streak) => streak.id !== id);
     await saveStreakHistory(updatedHistory);
-    setStreakHistory(updatedHistory); // Uppdatera state
-    console.log(`Streak med ID ${id} togs bort.`);
+    setStreakHistory(updatedHistory);
+    
+    // Beräkna ny bestStreak efter borttagning
+    const longestFromHistory = updatedHistory.length > 0 
+      ? Math.max(...updatedHistory.map(streak => streak.length))
+      : 0;
+      
+    // Jämför med nuvarande streak
+    const newBestStreak = Math.max(longestFromHistory, streakCount);
+    
+    // Uppdatera bestStreak
+    setBestStreak(newBestStreak);
+    await saveSetting('bestStreak', newBestStreak);
+    
+    console.log(`Streak med ID ${id} togs bort och bestStreak uppdaterad till ${newBestStreak}`);
   } catch (error) {
     console.error("Error removing streak:", error);
-  }
-};
-
-const editStreak = async (id, updatedStreak) => {
-  try {
-    const history = await getStreakHistory();
-    const updatedHistory = history.map((streak) =>
-      streak.id === id ? { ...streak, ...updatedStreak } : streak
-    );
-    await saveStreakHistory(updatedHistory);
-    setStreakHistory(updatedHistory); // Uppdatera state
-    console.log(`Streak med ID ${id} har uppdaterats.`);
-  } catch (error) {
-    console.error("Error editing streak:", error);
   }
 };
   
@@ -475,7 +508,6 @@ const editStreak = async (id, updatedStreak) => {
       if (notificationActive) {
         console.log("Rensar tidigare notiser och schemalägger ny.");
         await Notifications.cancelAllScheduledNotificationsAsync();
-        await scheduleDailyNotification();
       }
     } catch (error) {
       console.error("Fel vid hantering av notistid:", error);
@@ -658,8 +690,7 @@ const resetstreakCount = async (isAutomatic = false) => {
       await saveSetting('isRunLoggedToday', true);
       await saveSetting('runLoggedDate', todayDateString);
       await saveSetting('streakCount', newStreakCount);
-    
-      console.log('Aktivitet loggad idag:', isRunLoggedToday);
+       console.log('Aktivitet loggad idag:', isRunLoggedToday);
     
       if (newStreakCount > bestStreak) {
         setBestStreak(newStreakCount);
@@ -837,8 +868,6 @@ if (streakCount === 0) {
       setNotificationActive(isActive);
       console.log('notificationActive:', isActive);
   
-     
-  
       // Ladda tema
       const theme = await AsyncStorage.getItem('darkTheme');
       setDarkTheme(theme === 'true');
@@ -862,12 +891,31 @@ if (streakCount === 0) {
       setShowMotivationalQuote(motivationalQuote !== 'false');
       console.log('showMotivationalQuote:', motivationalQuote);
   
-      // Ladda längsta streak
-      const bestStreakString = await AsyncStorage.getItem('bestStreak');
-      if (bestStreakString !== null) {
-        setBestStreak(parseInt(bestStreakString));
+      // Ladda nuvarande streak
+      const savedStreakCount = await AsyncStorage.getItem('streakCount');
+      if (savedStreakCount !== null) {
+        setStreakCount(parseInt(savedStreakCount));
+      } else {
+        setStreakCount(0);
+        saveSetting('streakCount', 0);
       }
-      console.log('bestStreak:', bestStreakString);
+      console.log('streakCount:', savedStreakCount);
+  
+      // Ladda längsta streak (bestStreak)
+      const bestStreakString = await AsyncStorage.getItem('bestStreak');
+      let longestStreakFromStorage = bestStreakString ? parseInt(bestStreakString) : 0;
+  
+      // Hämta historik och jämför längsta streaken
+      const history = await getStreakHistory();
+      const longestStreakFromHistory = history.length > 0
+        ? Math.max(...history.map((streak) => streak.length))
+        : 0;
+  
+      // Beräkna längsta streak totalt
+      const longestStreakOverall = Math.max(longestStreakFromStorage, longestStreakFromHistory, streakCount);
+      setBestStreak(longestStreakOverall);
+      await saveSetting('bestStreak', longestStreakOverall);
+      console.log('Längsta streak beräknad och sparad:', longestStreakOverall);
   
       // Ladda övriga inställningar
       const showBestStreakString = await AsyncStorage.getItem('showBestStreak');
@@ -875,7 +923,7 @@ if (streakCount === 0) {
       console.log('showBestStreak:', showBestStreakString);
   
       const showRetroactiveButtonString = await AsyncStorage.getItem('showRetroactiveButton');
-      setShowRetroactiveButton(showRetroactiveButtonString !== 'false');
+      setShowRetroactiveButton(showRetroactiveButtonString !== 'fa  lse');
       console.log('showRetroactiveButton:', showRetroactiveButtonString);
   
       const showShareButtonString = await AsyncStorage.getItem('showShareButton');
@@ -896,15 +944,6 @@ if (streakCount === 0) {
         await saveSetting('isRunLoggedToday', true);
         console.log(`loadSettings - Run logged today: ${savedRunLoggedDateString}`);
       }
-  
-      const savedStreakCount = await AsyncStorage.getItem('streakCount');
-      if (savedStreakCount !== null) {
-        setStreakCount(parseInt(savedStreakCount));
-      } else {
-        setStreakCount(0);
-        saveSetting('streakCount', 0);
-      }
-      console.log('streakCount:', savedStreakCount);
   
       const savedActivityMode = await AsyncStorage.getItem('activityMode');
       if (savedActivityMode !== null) {
@@ -957,7 +996,7 @@ if (streakCount === 0) {
     } catch (e) {
       console.error('Failed to load settings.', e);
     }
-  };  
+  };
   
 
   const saveSetting = async (key, value) => {
@@ -1793,12 +1832,19 @@ const shareRunstreak = async () => {
 <DateTimePickerModal
   isVisible={isStartDatePickerVisible}
   mode="date"
-  date={newStartDate} 
-  maximumDate={new Date(Date.now() - (3 * 86400000))} //  (3 dagar sedan)
+  date={newStartDate}
+  maximumDate={(() => {
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() - 3); // 3 dagar sedan
+    maxDate.setHours(0, 0, 0, 0); // Normalisera till midnatt
+    return maxDate;
+  })()}
   onConfirm={(date) => {
-    setNewStartDate(date);
+    const localDate = new Date(date);
+    localDate.setHours(12, 0, 0, 0);  // Sätt tiden till 12:00 istället för 00:00
+    setNewStartDate(localDate);
     setStartDatePickerVisible(false);
-  }}
+}}
   onCancel={() => setStartDatePickerVisible(false)}
 />
 
@@ -1814,21 +1860,32 @@ const shareRunstreak = async () => {
 <DateTimePickerModal
   isVisible={isEndDatePickerVisible}
   mode="date"
-  date={newEndDate} 
-  maximumDate={new Date(Date.now() - ( 2 * 86400000))} // Igår (1 dag sedan)
-  minimumDate={newStartDate} // Kan inte välja datum före startdatum
+  date={newEndDate}
+  maximumDate={(() => {
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() - 2); // 2 dagar sedan
+    maxDate.setHours(0, 0, 0, 0); // Normalisera till midnatt
+    return maxDate;
+  })()}
+  minimumDate={newStartDate} // Behåll denna för att förhindra val före startdatum
   onConfirm={(date) => {
-    setNewEndDate(date);
+    const localDate = new Date(date);
+    localDate.setHours(12, 0, 0, 0);  // Sätt tiden till 12:00 istället för 00:00
+    setNewEndDate(localDate);
     setEndDatePickerVisible(false);
-  }}
+}}
   onCancel={() => setEndDatePickerVisible(false)}
 />
 
       <TouchableOpacity
         style={[styles.button, styles.buttonConfirm]}
         onPress={async () => {
+          console.log('StartDate:', new Date(newStartDate).toISOString());
+          console.log('EndDate:', new Date(newEndDate).toISOString());
           const diffInMs = new Date(newEndDate) - new Date(newStartDate);
           const days = Math.ceil(diffInMs / (1000 * 60 * 60 * 24)) + 1;
+
+          console.log('Calculated days:', days);
           await addStreakToHistory({
             id: Date.now().toString(),
             startDate: newStartDate.toDateString(),
