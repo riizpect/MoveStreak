@@ -2,7 +2,7 @@
   "expo": {
     "name": "MoveStreak",
     "slug": "movestreak",
-    "version": "1.0.40",
+    "version": "1.0.41",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -14,13 +14,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.yourname.runstreakapp",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "40",
+      "buildNumber": "41",
       "infoPlist": {
         "CFBundleDisplayName": "MoveStreak",
         "CFBundleLocalizations": [
+          "en",
           "sv"
         ],
-        "CFBundleDevelopmentRegion": "sv",
+        "CFBundleDevelopmentRegion": "en",
         "UIBackgroundModes": [
           "remote-notification"
         ]
@@ -28,7 +29,7 @@
     },
     "android": {
       "package": "com.movestreak.app",
-      "versionCode": 40,
+      "versionCode": 41,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#000000"

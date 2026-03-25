@@ -33,6 +33,13 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import LogButton from './LogButton';
+import { useTranslation } from 'react-i18next';
+import i18n, { setAppLanguage, hydrateI18nLanguage } from './i18n';
+
+/** Konsekvent dag-nyckel för AsyncStorage (oförändrad så befintliga användare inte tappar matchning). */
+function storageDateKey(d = new Date()) {
+  return new Date(d).toLocaleDateString('sv-SE');
+}
 
 function calculateDateDifference(startDate, endDate) {
   let start = new Date(startDate);
@@ -89,67 +96,16 @@ const checkAppVersion = async () => {
 
 const { width, height } = Dimensions.get('window');
 
-// Motivationscitat för löpning och promenad
-const runningQuotes = [
-  "Ge aldrig upp!",
-  "Spring som vinden!",
-  "Mål är till för att nås.",
-  "Din enda begränsning är du själv.",
-  "Du klarar mer än du tror.",
-  "Fortsätt framåt, alltid framåt.",
-  "Löpning är frihet.",
-  "Starkare för varje dag.",
-  "Din resa, dina mål.",
-  "Man ångrar aldrig ett löppass",
-  "Målet är bara början"
-];
-
-const walkingQuotes = [
-  "En promenad om dagen håller doktorn borta.",
-  "Steg för steg.",
-  "Varje steg räknas.",
-  "Promenader för kropp och själ.",
-  "Utforska världen ett steg i taget.",
-  "Varje promenad är en seger.",
-  "Promenera dig till hälsa.",
-  "Man ångrar aldrig en promenad.",
-  "Frisk luft och motion.",
-  "Vandra med ett leende.",
-  "Hälsa och lycka börjar med en promenad",
-  "Promenera mot dina mål.",
-  "Långsamt men stadigt."
-];
-
-const cyclingQuotes = [
-  "Cykla mot vinden!",
-  "Friheten på två hjul.",
-  "Trampa vidare!",
-  "Man ångrar aldrig en cykeltur :)",
-  "Vind i håret, frihet i själen.",
-  "Varje tramp är ett steg närmare ditt mål.",
-  "En dag utan cykling är en dag förlorad.",
-  "Trampa bort alla bekymmer"
-  // Lägg till fler citat här
-];
-
-const workoutQuotes = [
-  "Starkare för varje dag.",
-  "Ge inte upp!",
-  "Din enda begränsning är du själv.",
-  "Heja heja!",
-  "Ge aldrig upp på en dröm bara för att det tar tid att nå den.",
-  "Träning är den bästa investeringen du kan göra i dig själv.",
-  // Lägg till fler citat här
-];
-
-
 // Huvudkomponenten för appen
 export default function App() {
+  const { t } = useTranslation();
+  const localeTag = i18n.language.startsWith('sv') ? 'sv-SE' : 'en-US';
+
   const [encouragementVisible, setEncouragementVisible] = useState(false);
   const [encouragementShown, setEncouragementShown] = useState(false);
   const [dateDifference, setDateDifference] = useState({ years: 0, months: 0, days: 0 });
   const [streakCount, setStreakCount] = useState(0);
-  const [lastCheckedDate, setLastCheckedDate] = useState(new Date().toLocaleDateString());
+  const [lastCheckedDate, setLastCheckedDate] = useState(() => storageDateKey());
   const [showFullDate, setShowFullDate] = useState(false);
   const [notificationTime, setNotificationTime] = useState(new Date());
   const [tempNotificationTime, setTempNotificationTime] = useState(new Date());
@@ -190,7 +146,7 @@ export default function App() {
     try {
       await AsyncStorage.clear();
       console.log('AsyncStorage rensat.');
-      Alert.alert('Rensning klar', 'Alla lagrade data i AsyncStorage har rensats.');
+      Alert.alert(t('alerts.clearTitle'), t('alerts.clearBody'));
     } catch (error) {
       console.error('Fel vid rensning av AsyncStorage:', error);
     }
@@ -396,13 +352,6 @@ const removeStreak = async (id) => {
 
   const streakRef = useRef(null);
 
-  const activityDuration = {
-    run: 'minst 1.61 km',
-    walk: 'minst 1.61 km',
-    cycling: 'minst 20 minuter',
-    workout: 'minst 20 minuter'
-  };
-
   const changeBackground = async (background) => {
     try {
       await AsyncStorage.setItem('backgroundImage', background);
@@ -453,8 +402,8 @@ const removeStreak = async (id) => {
       console.log("Använder trigger.date med värde:", triggerDate.toLocaleString());
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Testnotis",
-          body: "Detta är en testnotis för att kontrollera om tiden fungerar korrekt.",
+          title: i18n.t('notifications.testTitle'),
+          body: i18n.t('notifications.testBody'),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -463,10 +412,10 @@ const removeStreak = async (id) => {
       });
   
       console.log("Testnotis schemalagd.");
-      Alert.alert("Notis schemalagd", "En testnotis kommer att visas om 5 sekunder.");
+      Alert.alert(i18n.t('notifications.scheduledTitle'), i18n.t('notifications.scheduledBody'));
     } catch (error) {
       console.error("Fel vid schemaläggning av testnotis:", error);
-      Alert.alert("Fel", "Kunde inte schemalägga testnotis. Kontrollera loggarna.");
+      Alert.alert(i18n.t('notifications.errorTitle'), i18n.t('notifications.errorBody'));
     }
   };
   
@@ -557,13 +506,13 @@ const removeStreak = async (id) => {
       }
   
       if (finalStatus !== 'granted') {
-        alert('Du måste tillåta notiser för att aktivera påminnelser!');
+        alert(t('notifications.permissionReminders'));
         return false;
       }
       console.log("Notistillstånd beviljat!");
       return true;
     } else {
-      alert('Måste använda fysisk enhet för Push Notiser');
+      alert(t('notifications.physicalDevice'));
       return false;
     }
   };
@@ -576,15 +525,15 @@ const removeStreak = async (id) => {
   // Bekräfta nollställning av streak-count
   const confirmResetStreakCount = () => {
     Alert.alert(
-      "Bekräfta nollställning",
-      "Är du säker på att du vill nollställa din nuvarande streak?",
+      t('alerts.resetConfirmTitle'),
+      t('alerts.resetStreakBody'),
       [
         {
-          text: "Avbryt",
+          text: t('common.cancel'),
           style: "cancel"
         },
         {
-          text: "Ja, nollställ",
+          text: t('common.yesReset'),
           onPress: () => resetstreakCount()
         }
       ]
@@ -602,8 +551,8 @@ const resetstreakCount = async (isAutomatic = false) => {
   if (streakCount > 0) {
     const completedStreak = {
       id: Date.now().toString(), // Unikt ID baserat på tid
-      startDate: streakStartDate ? new Date(streakStartDate).toLocaleDateString('sv-SE') : 'Okänt',
-      endDate: new Date().toLocaleDateString('sv-SE'),
+      startDate: streakStartDate ? new Date(streakStartDate).toLocaleDateString('sv-SE') : t('history.unknown'),
+      endDate: storageDateKey(),
       length: streakCount,
     };
     console.log("Sparar automatiskt streak i historik:", completedStreak);
@@ -629,7 +578,7 @@ const resetstreakCount = async (isAutomatic = false) => {
   if (isAutomatic) {
     setEncouragementVisible(true);
   } else {
-    Alert.alert('Streak nollställd', 'Din streak har blivit nollställd.');
+    Alert.alert(t('alerts.streakResetTitle'), t('alerts.streakResetBody'));
   }
 };
 
@@ -643,15 +592,15 @@ const resetstreakCount = async (isAutomatic = false) => {
   // Bekräfta nollställning av bästa streak
   const confirmResetBestStreak = () => {
     Alert.alert(
-      "Bekräfta nollställning",
-      "Är du säker på att du vill nollställa din längsta streak?",
+      t('alerts.resetBestTitle'),
+      t('alerts.resetBestBody'),
       [
         {
-          text: "Avbryt",
+          text: t('common.cancel'),
           style: "cancel"
         },
         {
-          text: "Ja, nollställ",
+          text: t('common.yesReset'),
           onPress: () => {
             resetBestStreak();
           }
@@ -667,8 +616,8 @@ const resetstreakCount = async (isAutomatic = false) => {
     // 2. Om du har historik kvar, fråga om du verkligen vill radera + hur den ska hanteras
     if (history.length > 0) {
       Alert.alert(
-        'Längsta streak ej nollställd',
-        'Du kan inte nollställa längsta streak så länge det finns sparad historik.'
+        t('alerts.bestNotResetTitle'),
+        t('alerts.bestNotResetBody')
       );
       return;
     }
@@ -680,16 +629,16 @@ const resetstreakCount = async (isAutomatic = false) => {
       setBestStreak(streakCount);
       await saveSetting('bestStreak', streakCount);
       Alert.alert(
-        'Längsta streak uppdaterad',
-        `Din längsta streak är nu lika med den aktiva streaken: ${streakCount} dagar.`
+        t('alerts.bestUpdatedTitle'),
+        t('alerts.bestUpdatedBody', { count: streakCount })
       );
     } else {
       // Om streakCount också är 0 eller av någon anledning lägre
       setBestStreak(0);
       await saveSetting('bestStreak', 0);
       Alert.alert(
-        'Längsta streak nollställd',
-        'Du har ingen aktiv streak, så längsta streak är satt till 0.'
+        t('alerts.bestClearedTitle'),
+        t('alerts.bestClearedBody')
       );
     }
   };
@@ -699,14 +648,14 @@ const resetstreakCount = async (isAutomatic = false) => {
 
   //Hantera loggning av 
   const handleLogRun = async (success) => {
-    const todayDateString = new Date().toLocaleDateString('sv-SE');
+    const todayDateString = storageDateKey();
   
     console.log('Dagens datum:', todayDateString);
     console.log('Är loggad idag:', isRunLoggedToday);
 
     if (success && !isRunLoggedToday) {
       if (streakCount >= 9999) {
-        Alert.alert('Maximalt antal dagar uppnått', 'Du kan inte logga fler än 9999 dagar.');
+        Alert.alert(t('alerts.maxDaysTitle'), t('alerts.maxDaysBody'));
         return;
       }
     
@@ -743,10 +692,10 @@ if (streakCount === 0) {
 }
 
     } else if (!success) {
-      Alert.alert('Målet har inte uppnåtts', 'Kom ihåg att springa minst 1.61 km!');
+      Alert.alert(t('alerts.goalNotMetTitle'), t('alerts.goalNotMetBody'));
       setLogModalVisible(false);
     } else {
-      Alert.alert('Redan loggad', 'Du har redan loggat din aktivitet för idag.');
+      Alert.alert(t('alerts.alreadyLoggedTitle'), t('alerts.alreadyLoggedBody'));
       setLogModalVisible(false);
     }
 
@@ -755,6 +704,10 @@ if (streakCount === 0) {
   };
   
 
+  useEffect(() => {
+    hydrateI18nLanguage();
+  }, []);
+
   // Effekt-hook som körs när komponenten laddas
   useEffect(() => {
     console.log("App laddas, registrerar för push-notiser...");
@@ -762,7 +715,7 @@ if (streakCount === 0) {
     loadSettings();
     setRandomQuote();
     checkDate();
-  }, [activityMode]);
+  }, [activityMode, i18n.language]);
 
   useEffect(() => {
     loadStreakHistory();
@@ -778,13 +731,9 @@ if (streakCount === 0) {
       if (isNewVersion) {
         // Visa popup med information om nya funktioner
         Alert.alert(
-          'Ny Uppdatering!',
-          'Här är de nya funktionerna i appen:\n\n' +
-            '- Nytt historiksystem för streaks\n' +
-            '- Förbättrad design\n' +
-            '- Snyggare Logga-knapp\n' +
-            '- Och mycket mer!',
-          [{ text: 'OK', onPress: () => console.log('Popup visad för ny version') }]
+          t('alerts.updateTitle'),
+          t('alerts.updateBody'),
+          [{ text: t('common.ok'), onPress: () => console.log('Popup visad för ny version') }]
         );
       }
     };
@@ -848,13 +797,13 @@ if (streakCount === 0) {
         }
   
         if (finalStatus !== 'granted') {
-          alert('Du måste tillåta notiser för att aktivera påminnelser!');
+          alert(t('notifications.permissionReminders'));
           return false;
         }
         console.log("Notisbehörighet godkänd.");
         return true;
       } else {
-        alert('Måste använda fysisk enhet för Push Notiser');
+        alert(t('notifications.physicalDevice'));
         return false;
       }
     } catch (error) {
@@ -963,9 +912,9 @@ if (streakCount === 0) {
       console.log('lastCheckedDate:', savedLastCheckedDate);
   
       const savedRunLoggedDate = await AsyncStorage.getItem('runLoggedDate');
-      const todayDateString = new Date().toDateString('sv-SE');
-      const savedRunLoggedDateString = savedRunLoggedDate ? new Date(savedRunLoggedDate).toLocaleDateString('sv-SE') : null;
-      if (savedRunLoggedDateString !== null && savedRunLoggedDateString === todayDateString) {
+      const todayKey = storageDateKey();
+      const savedRunLoggedDateString = savedRunLoggedDate ? storageDateKey(new Date(savedRunLoggedDate)) : null;
+      if (savedRunLoggedDateString !== null && savedRunLoggedDateString === todayKey) {
         setIsRunLoggedToday(true);
         await saveSetting('isRunLoggedToday', true);
         console.log(`loadSettings - Run logged today: ${savedRunLoggedDateString}`);
@@ -1042,25 +991,18 @@ if (streakCount === 0) {
 
   // Sätt ett slumpmässigt citat baserat på aktivitetstyp
   const setRandomQuote = () => {
-    let quotes;
-    switch (activityMode) {
-      case 'run':
-        quotes = runningQuotes;
-        break;
-      case 'walk':
-        quotes = walkingQuotes;
-        break;
-      case 'cycling':
-        quotes = cyclingQuotes;
-        break;
-      case 'workout':
-        quotes = workoutQuotes;
-        break;
-      default:
-        quotes = runningQuotes;
-    }
-    const randomIndex = Math.floor(Math.random() * quotes.length);
-    setMotivationalQuote(quotes[randomIndex]);
+    const key =
+      activityMode === 'walk'
+        ? 'quotes.walking'
+        : activityMode === 'cycling'
+          ? 'quotes.cycling'
+          : activityMode === 'workout'
+            ? 'quotes.workout'
+            : 'quotes.running';
+    const quotes = i18n.t(key, { returnObjects: true });
+    const list = Array.isArray(quotes) ? quotes : [];
+    if (list.length === 0) return;
+    setMotivationalQuote(list[Math.floor(Math.random() * list.length)]);
   };
   
 
@@ -1068,28 +1010,28 @@ if (streakCount === 0) {
 
     const scheduleDailyNotification = async (timeOverride) => {
       try {
-        const t = timeOverride ?? notificationTime;
-        if (!t || isNaN(t.getTime())) {
-          console.error("Fel: notificationTime är ogiltig:", t);
+        const notifTime = timeOverride ?? notificationTime;
+        if (!notifTime || isNaN(notifTime.getTime())) {
+          console.error("Fel: notificationTime är ogiltig:", notifTime);
           return;
         }
 
-        console.log("Schemalägger daglig notis på:", t.toLocaleString());
+        console.log("Schemalägger daglig notis på:", notifTime.toLocaleString());
         await Notifications.cancelAllScheduledNotificationsAsync();
 
         // expo-notifications kräver trigger med `type` (Date-objekt som ensam trigger är ogiltigt).
         const trigger = {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: t.getHours(),
-          minute: t.getMinutes(),
+          hour: notifTime.getHours(),
+          minute: notifTime.getMinutes(),
         };
 
         console.log("Schemalägger daglig notis (hour/minute):", trigger.hour, trigger.minute);
 
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: "Dags för din aktivitet!",
-            body: "Kom ihåg att logga din streak.",
+            title: i18n.t('notifications.dailyTitle'),
+            body: i18n.t('notifications.dailyBody'),
           },
           trigger,
         });
@@ -1105,10 +1047,11 @@ if (streakCount === 0) {
 
   // Schemalägg notis för streak
   const scheduleStreakNotification = async (streak) => {
+    const typeLabel = i18n.t(`streakType.${activityMode}`);
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Grattis!',
-        body: `Du har uppnått din dagliga målsättning med ${streak} dagars ${activityMode === 'run' ? 'löpstreak' : activityMode === 'walk' ? 'promenadstreak' : activityMode === 'cycling' ? 'cykelstreak' : 'träningsstreak'}!`,
+        title: i18n.t('notifications.congratsTitle'),
+        body: i18n.t('notifications.streakBody', { streak, type: typeLabel }),
       },
       trigger: null,
     });
@@ -1174,14 +1117,14 @@ if (streakCount === 0) {
       console.log("Scheduling daily notification. Notification active:", notificationActive);
      scheduleDailyNotification(notificationTime);
     }
-  }, [notificationActive, notificationTime]);
+  }, [notificationActive, notificationTime, i18n.language]);
   
   
   
 
   // Kontrollera datum för att återställa streak vid behov
   const checkDate = async () => {
-    const currentDate = new Date().toLocaleDateString('sv-SE');
+    const currentDate = storageDateKey();
     const savedRunLoggedDate = await AsyncStorage.getItem('runLoggedDate');
     const encouragementShown = await AsyncStorage.getItem('encouragementShown');
   
@@ -1249,17 +1192,9 @@ if (streakCount === 0) {
   // Dela streak på sociala medier
 const shareRunstreak = async () => {
   try {
-    const activityType =
-      activityMode === 'run'
-        ? 'löpstreak'
-        : activityMode === 'walk'
-        ? 'promenadstreak'
-        : activityMode === 'cycling'
-        ? 'cykelstreak'
-        : 'träningsstreak';
-
+    const typeLabel = t(`streakType.${activityMode}`);
     const result = await Share.share({
-      message: `Jag har ${streakCount} dagars ${activityType}! #MoveStreakApp`,
+      message: t('share.message', { count: streakCount, type: typeLabel }),
     });
   } catch (error) {
     alert(error.message);
@@ -1281,7 +1216,7 @@ const shareRunstreak = async () => {
     }
   
     if (daysSinceStart > 9999) {
-      Alert.alert('Maximalt antal dagar uppnått', 'Du kan inte logga fler än 9999 dagar.');
+      Alert.alert(t('alerts.maxDaysTitle'), t('alerts.maxDaysBody'));
       return;
     }
   
@@ -1342,7 +1277,7 @@ const shareRunstreak = async () => {
     darkTheme && styles.darkCard,
     isRunLoggedToday ? styles.loggedBorder : styles.notLoggedBorder]}>
         <Text style={[styles.streakStartDate, darkTheme && styles.darkText]}>
-        Start: {streakStartDate ? new Date(streakStartDate).toLocaleDateString('sv-SE') : new Date().toLocaleDateString('sv-SE')}
+        {t('start')}: {streakStartDate ? new Date(streakStartDate).toLocaleDateString(localeTag) : new Date().toLocaleDateString(localeTag)}
   </Text>
   {showFullDate ? (
     (() => {
@@ -1351,17 +1286,17 @@ const shareRunstreak = async () => {
         <View style={styles.fullDateContainer}>
           {years > 0 && (
             <Text style={[styles.streakText, darkTheme && styles.darkText, { fontSize: 40 }]}>
-              {years} år
+              {years} {t('years')}
             </Text>
           )}
           {months > 0 && (
             <Text style={[styles.streakText, darkTheme && styles.darkText, { fontSize: 40 }]}>
-              {months} månader
+              {months} {t('months')}
             </Text>
           )}
           {days > 0 && (
             <Text style={[styles.streakText, darkTheme && styles.darkText, { fontSize: 40 }]}>
-              {days} dagar
+              {days} {t('daysShort')}
             </Text>
           )}
         </View>
@@ -1386,8 +1321,8 @@ const shareRunstreak = async () => {
 
           {showBestStreak && (
             <Animatable.View animation="fadeIn" duration={1500} style={darkTheme ? styles.darkBestStreakCard : styles.bestStreakCard}>
-              <Text style={darkTheme ? styles.darkBestStreakLabel : styles.bestStreakLabel}>Längsta streak:</Text>
-              <Text style={darkTheme ? styles.darkBestStreakCount : styles.bestStreakCount}>{bestStreak} dagar</Text>
+              <Text style={darkTheme ? styles.darkBestStreakLabel : styles.bestStreakLabel}>{t('history.longestLabel')}</Text>
+              <Text style={darkTheme ? styles.darkBestStreakCount : styles.bestStreakCount}>{bestStreak} {t('days')}</Text>
             </Animatable.View>
           )}
 
@@ -1405,7 +1340,7 @@ const shareRunstreak = async () => {
             style={[styles.syncButton, darkTheme && styles.darkSyncButton, styles.moveDownButton]}
             onPress={() => setRetroactiveModalVisible(true)}
           >
-            <Text style={darkTheme && styles.darkSyncButtonText}>Har du redan en nuvarande streak?</Text>
+            <Text style={darkTheme && styles.darkSyncButtonText}>{t('retro.cta')}</Text>
           </TouchableOpacity>
           )}
 
@@ -1417,17 +1352,17 @@ const shareRunstreak = async () => {
           >
             <View style={styles.centeredView}>
               <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-                <Text style={[styles.modalText, darkTheme && styles.darkText]}>Vilken dag var din första dag du {activityMode === 'run' ? 'sprang' : 'gick'}?</Text>
+                <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t(`retro.${activityMode}`)}</Text>
                 <TouchableOpacity
   style={[styles.button, styles.buttonConfirm]}
   onPress={showRetroactiveDatePicker}
 >
-  <Text style={styles.textStyle}>Välj datum</Text>
+  <Text style={styles.textStyle}>{t('common.chooseDate')}</Text>
 </TouchableOpacity>
 <DateTimePickerModal
   isVisible={isRetroactiveDatePickerVisible}
   mode="date"
-  locale="sv"
+  locale={i18n.language.startsWith('sv') ? 'sv' : 'en_GB'}
   is24Hour={true}
   onConfirm={handleRetroactiveDateConfirm}
   onCancel={hideRetroactiveDatePicker}
@@ -1438,13 +1373,13 @@ const shareRunstreak = async () => {
                   style={[styles.button, styles.buttonConfirm]}
                   onPress={setRetroactiveStreak}
                 >
-                  <Text style={styles.textStyle}>Bekräfta</Text>
+                  <Text style={styles.textStyle}>{t('common.confirm')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.button, styles.buttonCancel]}
                   onPress={() => setRetroactiveModalVisible(false)}
                 >
-                  <Text style={styles.textStyle}>Avbryt</Text>
+                  <Text style={styles.textStyle}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1458,15 +1393,15 @@ const shareRunstreak = async () => {
 >
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-      <Text style={[styles.modalText, darkTheme && styles.darkText]}>Din streak har återställts</Text>
+      <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t('encouragement.title')}</Text>
       <Text style={[styles.modalText, darkTheme && styles.darkText]}>
-        Det är okej att ha en dålig dag. Ta nya tag och börja om på din streak! Vi tror på dig!
+        {t('encouragement.body')}
       </Text>
       <TouchableOpacity
         style={[styles.button, styles.buttonConfirm]}
         onPress={() => setEncouragementVisible(false)}
       >
-        <Text style={styles.textStyle}>Okej</Text>
+        <Text style={styles.textStyle}>{t('common.ok')}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -1482,18 +1417,18 @@ const shareRunstreak = async () => {
           >
             <View style={styles.centeredView}>
               <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-                <Text style={[styles.modalText, darkTheme && styles.darkText]}>Har du {activityMode === 'run' ? 'sprungit' : activityMode === 'walk' ? 'gått' : activityMode === 'cycling' ? 'cyklat' : 'tränat'} {activityDuration[activityMode]} idag?</Text>
+                <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t(`logModal.${activityMode}`, { duration: t(`duration.${activityMode}`) })}</Text>
                 <TouchableOpacity
                   style={[styles.button, styles.buttonConfirm]}
                   onPress={() => handleLogRun(true)}
                 >
-                  <Text style={styles.textStyle}>Ja, såklart!</Text>
+                  <Text style={styles.textStyle}>{t('common.yesAbsolutely')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.button, styles.buttonCancel]}
                   onPress={() => setLogModalVisible(false)}
                 >
-                  <Text style={styles.textStyle}>Avbryt</Text>
+                  <Text style={styles.textStyle}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1508,9 +1443,26 @@ const shareRunstreak = async () => {
 >
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-      <Text style={[styles.modalText, darkTheme && styles.darkText]}>Inställningar</Text>
+      <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t('settings.title')}</Text>
       <View style={styles.switchContainer}>
-        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Mörkt tema</Text>
+        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.language')}</Text>
+        <View style={styles.languageRow}>
+          <TouchableOpacity
+            style={[styles.languageChip, i18n.language === 'en' && styles.languageChipActive]}
+            onPress={() => setAppLanguage('en')}
+          >
+            <Text style={[styles.languageChipText, i18n.language === 'en' && styles.languageChipTextOnActive]}>{t('settings.languageEnglish')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.languageChip, i18n.language === 'sv' && styles.languageChipActive]}
+            onPress={() => setAppLanguage('sv')}
+          >
+            <Text style={[styles.languageChipText, i18n.language === 'sv' && styles.languageChipTextOnActive]}>{t('settings.languageSwedish')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      <View style={styles.switchContainer}>
+        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.darkTheme')}</Text>
         <Switch
           trackColor={{ false: '#767577', true: '#81b0ff' }}
           thumbColor={darkTheme ? '#f5dd4b' : '#f4f3f4'}
@@ -1520,26 +1472,26 @@ const shareRunstreak = async () => {
       </View>
 
       <View style={styles.switchContainer}>
-        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Välj bakgrund</Text>
+        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.chooseBackground')}</Text>
         <View style={styles.backgroundButtonContainer}>
           <TouchableOpacity onPress={() => changeBackground('grass')}>
-            <Text style={styles.backgroundButton}>Ljus</Text>
+            <Text style={styles.backgroundButton}>{t('settings.bgLight')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => changeBackground('dark')}>
-            <Text style={styles.backgroundButton}>Mörk</Text>
+            <Text style={styles.backgroundButton}>{t('settings.bgDark')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => changeBackground('olive')}>
-            <Text style={styles.backgroundButton}>Ljusblå</Text>
+            <Text style={styles.backgroundButton}>{t('settings.bgOlive')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => changeBackground('cloud')}>
-            <Text style={styles.backgroundButton}>Moln</Text>
+            <Text style={styles.backgroundButton}>{t('settings.bgCloud')}</Text>
 
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.switchContainer}>
-  <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Visa år, månader och dagar</Text>
+  <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.showFullDate')}</Text>
   <Switch
     trackColor={{ false: '#767577', true: '#81b0ff' }}
     thumbColor={showFullDate ? '#f5dd4b' : '#f4f3f4'}
@@ -1551,7 +1503,7 @@ const shareRunstreak = async () => {
   />
 </View>
       <View style={styles.switchContainer}>
-        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Visa motiverande citat</Text>
+        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.showQuotes')}</Text>
         <Switch
           trackColor={{ false: '#767577', true: '#81b0ff' }}
           thumbColor={showMotivationalQuote ? '#f5dd4b' : '#f4f3f4'}
@@ -1560,7 +1512,7 @@ const shareRunstreak = async () => {
         />
       </View>
       <View style={styles.switchContainer}>
-        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Visa längsta streak</Text>
+        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.showBest')}</Text>
         <Switch
           trackColor={{ false: '#767577', true: '#81b0ff' }}
           thumbColor={showBestStreak ? '#f5dd4b' : '#f4f3f4'}
@@ -1570,7 +1522,7 @@ const shareRunstreak = async () => {
       </View>
 
       <View style={styles.switchContainer}>
-  <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Visa tidigare streak-knapp</Text>
+  <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.showRetro')}</Text>
   <Switch
     trackColor={{ false: '#767577', true: '#81b0ff' }}
     thumbColor={showRetroactiveButton ? '#f5dd4b' : '#f4f3f4'}
@@ -1584,7 +1536,7 @@ const shareRunstreak = async () => {
 
 
       <View style={styles.switchContainer}>
-  <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Visa dela-knappen</Text>
+  <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.showShare')}</Text>
   <Switch
     trackColor={{ false: '#767577', true: '#81b0ff' }}
     thumbColor={showShareButton ? '#f5dd4b' : '#f4f3f4'}
@@ -1599,7 +1551,7 @@ const shareRunstreak = async () => {
       <View style={styles.notificationButtonContainer}>
   <Button
     icon={<Icon name={notificationActive ? "bell" : "bell-slash"} size={15} color="white" />}
-    title={notificationActive ? "Notiser på" : "Notiser av"}
+    title={notificationActive ? t('notifications.on') : t('notifications.off')}
     buttonStyle={[
       styles.smallButton,
       notificationActive ? styles.activeButton : styles.inactiveButton,
@@ -1609,7 +1561,7 @@ const shareRunstreak = async () => {
   />
 <Button
   icon={<Icon name="clock-o" size={15} color="white" />}
-  title={`Påminnelse: ${notificationTime.getHours()}:${notificationTime.getMinutes() < 10 ? '0' : ''}${notificationTime.getMinutes()}`}
+  title={`${t('notifications.reminder')}: ${notificationTime.getHours()}:${notificationTime.getMinutes() < 10 ? '0' : ''}${notificationTime.getMinutes()}`}
   buttonStyle={[styles.smallButton, { backgroundColor: '#42A5F5' }]}
   onPress={() => {
     setTempNotificationTime(new Date(notificationTime.getTime()));
@@ -1623,7 +1575,7 @@ const shareRunstreak = async () => {
 </View>
 
 <View style={styles.activityModeContainer}>
-        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>Aktivitetsläge</Text>
+        <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.activityMode')}</Text>
         <View style={styles.activityButtonsContainer}>
           <TouchableOpacity
             onPress={() => {
@@ -1632,7 +1584,7 @@ const shareRunstreak = async () => {
             }}
             style={activityMode === 'run' ? styles.activeActivityButtonContainer : styles.inactiveActivityButtonContainer}
           >
-            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>Springa</Text>
+            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>{t('settings.modeRun')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -1641,7 +1593,7 @@ const shareRunstreak = async () => {
             }}
             style={activityMode === 'walk' ? styles.activeActivityButtonContainer : styles.inactiveActivityButtonContainer}
           >
-            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>Gå</Text>
+            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>{t('settings.modeWalk')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -1650,7 +1602,7 @@ const shareRunstreak = async () => {
             }}
             style={activityMode === 'cycling' ? styles.activeActivityButtonContainer : styles.inactiveActivityButtonContainer}
           >
-            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>Cykling</Text>
+            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>{t('settings.modeCycling')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -1659,7 +1611,7 @@ const shareRunstreak = async () => {
             }}
             style={activityMode === 'workout' ? styles.activeActivityButtonContainer : styles.inactiveActivityButtonContainer}
           >
-            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>Träning</Text>
+            <Text style={[styles.activityButtonText, darkTheme && styles.darkActivityButtonText]}>{t('settings.modeWorkout')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1667,11 +1619,11 @@ const shareRunstreak = async () => {
 
       <View style={styles.buttonsContainer}>
   <TouchableOpacity style={styles.button} onPress={confirmResetStreakCount}>
-    <Text style={styles.buttonText}>Återställ streak</Text>
+    <Text style={styles.buttonText}>{t('settings.resetStreak')}</Text>
   </TouchableOpacity>
 
   <TouchableOpacity style={styles.button} onPress={confirmResetBestStreak}>
-    <Text style={styles.buttonText}>Återställ längsta streak</Text>
+    <Text style={styles.buttonText}>{t('settings.resetBest')}</Text>
   </TouchableOpacity>
 </View>
 
@@ -1696,12 +1648,12 @@ const shareRunstreak = async () => {
           >
             <View style={styles.centeredView}>
               <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-                <Text style={[styles.modalText, darkTheme && styles.darkText]}>Välj tid</Text>
+                <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t('settings.pickTimeTitle')}</Text>
                 <TouchableOpacity
   style={[styles.button, styles.buttonConfirm]}
   onPress={showNotificationDatePicker}
 >
-  <Text style={styles.textStyle}>Välj tid</Text>
+  <Text style={styles.textStyle}>{t('common.chooseTime')}</Text>
 </TouchableOpacity>
 
 
@@ -1709,6 +1661,8 @@ const shareRunstreak = async () => {
 <DateTimePickerModal
   isVisible={isNotificationDatePickerVisible}
   mode="time"
+  locale={i18n.language.startsWith('sv') ? 'sv' : 'en_GB'}
+  is24Hour={true}
   onConfirm={handleNotificationDateConfirm}
   onCancel={hideNotificationDatePicker}
 />
@@ -1717,13 +1671,13 @@ const shareRunstreak = async () => {
                   style={[styles.button, styles.buttonConfirm]}
                   onPress={confirmTime}
                 >
-                  <Text style={styles.textStyle}>Bekräfta</Text>
+                  <Text style={styles.textStyle}>{t('common.confirm')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.button, styles.buttonCancel]}
                   onPress={cancelTime}
                 >
-                  <Text style={styles.textStyle}>Avbryt</Text>
+                  <Text style={styles.textStyle}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1732,7 +1686,7 @@ const shareRunstreak = async () => {
           <View style={styles.footerContainer}>
             <Button
               icon={<Icon name="share-alt" size={15} color="white" />}
-              title=" Dela din MoveStreak"
+              title={` ${t('share.title')}`}
               buttonStyle={[styles.button, { backgroundColor: '#42A5F5' }]}
               onPress={shareRunstreak}
               containerStyle={styles.buttonContainer}
@@ -1793,14 +1747,14 @@ const shareRunstreak = async () => {
 >
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-    <Text style={[styles.historyHeader, darkTheme && styles.darkText]}>Din Streak-historik</Text>
+    <Text style={[styles.historyHeader, darkTheme && styles.darkText]}>{t('history.title')}</Text>
 
     <FlatList
   data={streakHistory}
   keyExtractor={(item) => item.id}
   renderItem={({ item }) => {
-    const startDate = new Date(item.startDate).toLocaleDateString('sv-SE');
-    const endDate = new Date(item.endDate).toLocaleDateString('sv-SE');
+    const startDate = new Date(item.startDate).toLocaleDateString(localeTag);
+    const endDate = new Date(item.endDate).toLocaleDateString(localeTag);
     const lengthInDays = Math.ceil((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24)) + 1;
 
     return (
@@ -1808,14 +1762,14 @@ const shareRunstreak = async () => {
         <View style={styles.dateContainer}>
           <Text style={styles.historyDateText}>{startDate} → {endDate}</Text>
           <View style={styles.dayCountContainer}>
-            <Text style={styles.dayCountText}>{lengthInDays} dagar</Text>
+            <Text style={styles.dayCountText}>{t('history.daysCount', { count: lengthInDays })}</Text>
           </View>
         </View>
         <TouchableOpacity
           style={styles.historyDeleteButton}
           onPress={() => removeStreak(item.id)}
         >
-          <Text style={styles.historyDeleteButtonText}>Ta bort</Text>
+          <Text style={styles.historyDeleteButtonText}>{t('history.remove')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -1825,7 +1779,7 @@ const shareRunstreak = async () => {
   ListEmptyComponent={() => (
     <View style={styles.emptyContainer}>
       <Icon name="history" size={50} color="#ccc" />
-      <Text style={styles.emptyText}>Ingen historik än. Logga en streak för att komma igång!</Text>
+      <Text style={styles.emptyText}>{t('history.empty')}</Text>
     </View>
   )}
 />
@@ -1838,21 +1792,22 @@ const shareRunstreak = async () => {
 >
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
-      <Text style={[styles.modalText, darkTheme && styles.darkText]}>Lägg till en streak</Text>
+      <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t('addStreak.title')}</Text>
       
-      <Text style={{ marginBottom: 10, fontWeight: 'bold', color: darkTheme ? '#fff' : '#000' }}>Startdatum:</Text>
+      <Text style={{ marginBottom: 10, fontWeight: 'bold', color: darkTheme ? '#fff' : '#000' }}>{t('addStreak.startDate')}</Text>
       <TouchableOpacity
   style={{ padding: 10, backgroundColor: '#ddd', borderRadius: 5, marginBottom: 10 }}
   onPress={() => setStartDatePickerVisible(true)}
 >
   <Text style={{ color: '#333', fontSize: 16 }}>
-    Startdatum: {newStartDate ? new Date(newStartDate).toLocaleDateString('sv-SE') : 'Välj datum'}
+    {newStartDate ? t('addStreak.startPick', { date: new Date(newStartDate).toLocaleDateString(localeTag) }) : t('addStreak.pickDate')}
   </Text>
 </TouchableOpacity>
 
 <DateTimePickerModal
   isVisible={isStartDatePickerVisible}
   mode="date"
+  locale={i18n.language.startsWith('sv') ? 'sv' : 'en_GB'}
   date={newStartDate}
   maximumDate={(() => {
     const maxDate = new Date();
@@ -1869,18 +1824,20 @@ const shareRunstreak = async () => {
   onCancel={() => setStartDatePickerVisible(false)}
 />
 
+<Text style={{ marginBottom: 10, fontWeight: 'bold', color: darkTheme ? '#fff' : '#000' }}>{t('addStreak.endDate')}</Text>
 <TouchableOpacity
   style={{ padding: 10, backgroundColor: '#ddd', borderRadius: 5, marginBottom: 10 }}
   onPress={() => setEndDatePickerVisible(true)}
 >
   <Text style={{ color: '#333', fontSize: 16 }}>
-    Slutdatum: {newEndDate ? new Date(newEndDate).toLocaleDateString('sv-SE') : 'Välj datum'}
+    {newEndDate ? t('addStreak.endPick', { date: new Date(newEndDate).toLocaleDateString(localeTag) }) : t('addStreak.pickDate')}
   </Text>
 </TouchableOpacity>
 
 <DateTimePickerModal
   isVisible={isEndDatePickerVisible}
   mode="date"
+  locale={i18n.language.startsWith('sv') ? 'sv' : 'en_GB'}
   date={newEndDate}
   maximumDate={(() => {
     const maxDate = new Date();
@@ -1917,14 +1874,14 @@ const shareRunstreak = async () => {
           loadStreakHistory();
         }}
       >
-        <Text style={styles.textStyle}>Lägg till</Text>
+        <Text style={styles.textStyle}>{t('common.add')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.button, styles.buttonCancel]}
         onPress={() => setAddModalVisible(false)}
       >
-        <Text style={styles.textStyle}>Avbryt</Text>
+        <Text style={styles.textStyle}>{t('common.cancel')}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -1936,13 +1893,13 @@ const shareRunstreak = async () => {
   style={{ padding: 10, backgroundColor: '#28a745', borderRadius: 5, marginBottom: 10, alignSelf: 'center' }}
   onPress={() => setAddModalVisible(true)}
 >
-  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Lägg till</Text>
+  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{t('common.add')}</Text>
 </TouchableOpacity>
       <TouchableOpacity
         style={[styles.button, styles.buttonCancel]}
         onPress={() => setHistoryModalVisible(false)}
       >
-        <Text style={styles.textStyle}>Stäng</Text>
+        <Text style={styles.textStyle}>{t('common.close')}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -2643,6 +2600,33 @@ dayCountText: {
     marginTop: hp('1%'),
     marginVertical: hp('0.75%'),
     flexWrap: 'wrap',
+  },
+  languageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
+    marginLeft: wp('2%'),
+  },
+  languageChip: {
+    paddingVertical: hp('0.6%'),
+    paddingHorizontal: wp('3%'),
+    borderRadius: wp('2%'),
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: wp('1%'),
+    marginVertical: hp('0.25%'),
+  },
+  languageChipActive: {
+    backgroundColor: '#42A5F5',
+  },
+  languageChipText: {
+    fontSize: wp('3.5%'),
+    fontWeight: '600',
+    color: '#333',
+  },
+  languageChipTextOnActive: {
+    color: '#fff',
   },
   modalLabel: {
     marginBottom: hp('2.5%'),

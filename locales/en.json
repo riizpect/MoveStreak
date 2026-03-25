@@ -1,1 +1,185 @@
-{}
+{
+  "quotes": {
+    "running": [
+      "Never give up!",
+      "Run like the wind!",
+      "Goals are meant to be crushed.",
+      "Your only limit is you.",
+      "You're capable of more than you think.",
+      "Keep moving forward.",
+      "Running is freedom.",
+      "Stronger every day.",
+      "Your journey, your rules.",
+      "You never regret a run.",
+      "The finish line is just the beginning."
+    ],
+    "walking": [
+      "A walk a day keeps the doctor away.",
+      "Step by step.",
+      "Every step counts.",
+      "Walks for body and mind.",
+      "Explore the world one step at a time.",
+      "Every walk is a win.",
+      "Walk your way to health.",
+      "You never regret a walk.",
+      "Fresh air and movement.",
+      "Walk with a smile.",
+      "Health and happiness start with a walk.",
+      "Walk toward your goals.",
+      "Slow and steady."
+    ],
+    "cycling": [
+      "Ride into the wind!",
+      "Freedom on two wheels.",
+      "Keep pedaling!",
+      "You never regret a bike ride :)",
+      "Wind in your hair, freedom in your soul.",
+      "Every pedal stroke gets you closer to your goal.",
+      "A day without cycling is a day lost.",
+      "Pedal the stress away."
+    ],
+    "workout": [
+      "Stronger every day.",
+      "Don't give up!",
+      "Your only limit is you.",
+      "You've got this!",
+      "Never give up on a dream just because it takes time.",
+      "Training is the best investment you can make in yourself."
+    ]
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "ok": "OK",
+    "chooseDate": "Choose date",
+    "chooseTime": "Choose time",
+    "close": "Close",
+    "add": "Add",
+    "yesAbsolutely": "Yes, absolutely!",
+    "yesReset": "Yes, reset"
+  },
+  "start": "Start",
+  "days": "days",
+  "years": "years",
+  "months": "months",
+  "daysShort": "days",
+  "duration": {
+    "run": "at least 1.61 km",
+    "walk": "at least 1.61 km",
+    "cycling": "at least 20 minutes",
+    "workout": "at least 20 minutes"
+  },
+  "streakType": {
+    "run": "running streak",
+    "walk": "walking streak",
+    "cycling": "cycling streak",
+    "workout": "workout streak"
+  },
+  "share": {
+    "title": "Share your MoveStreak",
+    "message": "I'm on a {{count}}-day {{type}}! #MoveStreakApp"
+  },
+  "notifications": {
+    "on": "Notifications on",
+    "off": "Notifications off",
+    "reminder": "Reminder",
+    "permissionReminders": "Allow notifications to enable reminders.",
+    "physicalDevice": "A physical device is required for push notifications.",
+    "dailyTitle": "Time to move!",
+    "dailyBody": "Don't forget to log your streak.",
+    "congratsTitle": "Nice work!",
+    "streakBody": "You hit your daily goal — {{streak}} days of {{type}}!",
+    "testTitle": "Test notification",
+    "testBody": "This is a test notification to verify scheduling.",
+    "scheduledTitle": "Notification scheduled",
+    "scheduledBody": "A test notification will appear in about 5 seconds.",
+    "errorTitle": "Error",
+    "errorBody": "Could not schedule the test notification. Check the logs."
+  },
+  "alerts": {
+    "clearTitle": "Storage cleared",
+    "clearBody": "All data in local storage has been cleared.",
+    "resetConfirmTitle": "Confirm reset",
+    "resetStreakBody": "Are you sure you want to reset your current streak?",
+    "streakResetTitle": "Streak reset",
+    "streakResetBody": "Your streak has been reset.",
+    "resetBestTitle": "Confirm reset",
+    "resetBestBody": "Are you sure you want to reset your longest streak?",
+    "bestNotResetTitle": "Longest streak not reset",
+    "bestNotResetBody": "You can't reset longest streak while history exists.",
+    "bestUpdatedTitle": "Longest streak updated",
+    "bestUpdatedBody": "Your longest streak now matches your active streak: {{count}} days.",
+    "bestClearedTitle": "Longest streak reset",
+    "bestClearedBody": "No active streak, so longest streak is set to 0.",
+    "maxDaysTitle": "Maximum days reached",
+    "maxDaysBody": "You can't log more than 9999 days.",
+    "goalNotMetTitle": "Goal not met",
+    "goalNotMetBody": "Remember to meet your daily goal (e.g. at least 1.61 km or 20 minutes).",
+    "alreadyLoggedTitle": "Already logged",
+    "alreadyLoggedBody": "You've already logged your activity for today.",
+    "updateTitle": "New update!",
+    "updateBody": "Here's what's new:\n\n• Streak history\n• Improved design\n• Better log button\n• And more!"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageEnglish": "English",
+    "languageSwedish": "Swedish",
+    "darkTheme": "Dark theme",
+    "chooseBackground": "Background",
+    "bgLight": "Light",
+    "bgDark": "Dark",
+    "bgOlive": "Light blue",
+    "bgCloud": "Cloud",
+    "showFullDate": "Show years, months, and days",
+    "showQuotes": "Show motivational quotes",
+    "showBest": "Show longest streak",
+    "showRetro": "Show “existing streak” button",
+    "showShare": "Show share button",
+    "activityMode": "Activity mode",
+    "modeRun": "Run",
+    "modeWalk": "Walk",
+    "modeCycling": "Cycling",
+    "modeWorkout": "Workout",
+    "resetStreak": "Reset streak",
+    "resetBest": "Reset longest streak",
+    "pickTimeTitle": "Pick a time"
+  },
+  "retro": {
+    "cta": "Already have an active streak?",
+    "run": "What was the first day you ran?",
+    "walk": "What was the first day you walked?",
+    "cycling": "What was the first day you cycled?",
+    "workout": "What was the first day you worked out?"
+  },
+  "logModal": {
+    "run": "Have you run {{duration}} today?",
+    "walk": "Have you walked {{duration}} today?",
+    "cycling": "Have you cycled for {{duration}} today?",
+    "workout": "Have you worked out for {{duration}} today?"
+  },
+  "encouragement": {
+    "title": "Your streak was reset",
+    "body": "Everyone has off days. Shake it off and start fresh — you've got this!"
+  },
+  "history": {
+    "title": "Streak history",
+    "longestLabel": "Longest streak:",
+    "remove": "Remove",
+    "daysCount": "{{count}} days",
+    "empty": "No history yet. Log a streak to get started!",
+    "unknown": "Unknown"
+  },
+  "addStreak": {
+    "title": "Add a streak",
+    "startDate": "Start date:",
+    "endDate": "End date:",
+    "startPick": "Start date: {{date}}",
+    "endPick": "End date: {{date}}",
+    "pickDate": "Pick a date"
+  },
+  "logButton": {
+    "log": "LOG",
+    "hold": "HOLD"
+  }
+}

@@ -1,1 +1,185 @@
-{}
+{
+  "quotes": {
+    "running": [
+      "Ge aldrig upp!",
+      "Spring som vinden!",
+      "Mål är till för att nås.",
+      "Din enda begränsning är du själv.",
+      "Du klarar mer än du tror.",
+      "Fortsätt framåt, alltid framåt.",
+      "Löpning är frihet.",
+      "Starkare för varje dag.",
+      "Din resa, dina mål.",
+      "Man ångrar aldrig ett löppass",
+      "Målet är bara början"
+    ],
+    "walking": [
+      "En promenad om dagen håller doktorn borta.",
+      "Steg för steg.",
+      "Varje steg räknas.",
+      "Promenader för kropp och själ.",
+      "Utforska världen ett steg i taget.",
+      "Varje promenad är en seger.",
+      "Promenera dig till hälsa.",
+      "Man ångrar aldrig en promenad.",
+      "Frisk luft och motion.",
+      "Vandra med ett leende.",
+      "Hälsa och lycka börjar med en promenad",
+      "Promenera mot dina mål.",
+      "Långsamt men stadigt."
+    ],
+    "cycling": [
+      "Cykla mot vinden!",
+      "Friheten på två hjul.",
+      "Trampa vidare!",
+      "Man ångrar aldrig en cykeltur :)",
+      "Vind i håret, frihet i själen.",
+      "Varje tramp är ett steg närmare ditt mål.",
+      "En dag utan cykling är en dag förlorad.",
+      "Trampa bort alla bekymmer"
+    ],
+    "workout": [
+      "Starkare för varje dag.",
+      "Ge inte upp!",
+      "Din enda begränsning är du själv.",
+      "Heja heja!",
+      "Ge aldrig upp på en dröm bara för att det tar tid att nå den.",
+      "Träning är den bästa investeringen du kan göra i dig själv."
+    ]
+  },
+  "common": {
+    "cancel": "Avbryt",
+    "confirm": "Bekräfta",
+    "ok": "Okej",
+    "chooseDate": "Välj datum",
+    "chooseTime": "Välj tid",
+    "close": "Stäng",
+    "add": "Lägg till",
+    "yesAbsolutely": "Ja, såklart!",
+    "yesReset": "Ja, nollställ"
+  },
+  "start": "Start",
+  "days": "dagar",
+  "years": "år",
+  "months": "månader",
+  "daysShort": "dagar",
+  "duration": {
+    "run": "minst 1.61 km",
+    "walk": "minst 1.61 km",
+    "cycling": "minst 20 minuter",
+    "workout": "minst 20 minuter"
+  },
+  "streakType": {
+    "run": "löpstreak",
+    "walk": "promenadstreak",
+    "cycling": "cykelstreak",
+    "workout": "träningsstreak"
+  },
+  "share": {
+    "title": "Dela din MoveStreak",
+    "message": "Jag har {{count}} dagars {{type}}! #MoveStreakApp"
+  },
+  "notifications": {
+    "on": "Notiser på",
+    "off": "Notiser av",
+    "reminder": "Påminnelse",
+    "permissionReminders": "Du måste tillåta notiser för att aktivera påminnelser!",
+    "physicalDevice": "Måste använda fysisk enhet för Push Notiser",
+    "dailyTitle": "Dags för din aktivitet!",
+    "dailyBody": "Kom ihåg att logga din streak.",
+    "congratsTitle": "Grattis!",
+    "streakBody": "Du har uppnått din dagliga målsättning med {{streak}} dagars {{type}}!",
+    "testTitle": "Testnotis",
+    "testBody": "Detta är en testnotis för att kontrollera om tiden fungerar korrekt.",
+    "scheduledTitle": "Notis schemalagd",
+    "scheduledBody": "En testnotis kommer att visas om 5 sekunder.",
+    "errorTitle": "Fel",
+    "errorBody": "Kunde inte schemalägga testnotis. Kontrollera loggarna."
+  },
+  "alerts": {
+    "clearTitle": "Rensning klar",
+    "clearBody": "Alla lagrade data i AsyncStorage har rensats.",
+    "resetConfirmTitle": "Bekräfta nollställning",
+    "resetStreakBody": "Är du säker på att du vill nollställa din nuvarande streak?",
+    "streakResetTitle": "Streak nollställd",
+    "streakResetBody": "Din streak har blivit nollställd.",
+    "resetBestTitle": "Bekräfta nollställning",
+    "resetBestBody": "Är du säker på att du vill nollställa din längsta streak?",
+    "bestNotResetTitle": "Längsta streak ej nollställd",
+    "bestNotResetBody": "Du kan inte nollställa längsta streak så länge det finns sparad historik.",
+    "bestUpdatedTitle": "Längsta streak uppdaterad",
+    "bestUpdatedBody": "Din längsta streak är nu lika med den aktiva streaken: {{count}} dagar.",
+    "bestClearedTitle": "Längsta streak nollställd",
+    "bestClearedBody": "Du har ingen aktiv streak, så längsta streak är satt till 0.",
+    "maxDaysTitle": "Maximalt antal dagar uppnått",
+    "maxDaysBody": "Du kan inte logga fler än 9999 dagar.",
+    "goalNotMetTitle": "Målet har inte uppnåtts",
+    "goalNotMetBody": "Kom ihåg att springa minst 1.61 km!",
+    "alreadyLoggedTitle": "Redan loggad",
+    "alreadyLoggedBody": "Du har redan loggat din aktivitet för idag.",
+    "updateTitle": "Ny uppdatering!",
+    "updateBody": "Här är de nya funktionerna i appen:\n\n• Nytt historiksystem för streaks\n• Förbättrad design\n• Snyggare Logga-knapp\n• Och mycket mer!"
+  },
+  "settings": {
+    "title": "Inställningar",
+    "language": "Språk",
+    "languageEnglish": "English",
+    "languageSwedish": "Svenska",
+    "darkTheme": "Mörkt tema",
+    "chooseBackground": "Välj bakgrund",
+    "bgLight": "Ljus",
+    "bgDark": "Mörk",
+    "bgOlive": "Ljusblå",
+    "bgCloud": "Moln",
+    "showFullDate": "Visa år, månader och dagar",
+    "showQuotes": "Visa motiverande citat",
+    "showBest": "Visa längsta streak",
+    "showRetro": "Visa tidigare streak-knapp",
+    "showShare": "Visa dela-knappen",
+    "activityMode": "Aktivitetsläge",
+    "modeRun": "Springa",
+    "modeWalk": "Gå",
+    "modeCycling": "Cykling",
+    "modeWorkout": "Träning",
+    "resetStreak": "Återställ streak",
+    "resetBest": "Återställ längsta streak",
+    "pickTimeTitle": "Välj tid"
+  },
+  "retro": {
+    "cta": "Har du redan en nuvarande streak?",
+    "run": "Vilken dag var din första dag du sprang?",
+    "walk": "Vilken dag var din första dag du gick?",
+    "cycling": "Vilken dag var din första dag du cyklade?",
+    "workout": "Vilken dag var din första dag du tränade?"
+  },
+  "logModal": {
+    "run": "Har du sprungit {{duration}} idag?",
+    "walk": "Har du gått {{duration}} idag?",
+    "cycling": "Har du cyklat {{duration}} idag?",
+    "workout": "Har du tränat {{duration}} idag?"
+  },
+  "encouragement": {
+    "title": "Din streak har återställts",
+    "body": "Det är okej att ha en dålig dag. Ta nya tag och börja om på din streak! Vi tror på dig!"
+  },
+  "history": {
+    "title": "Din Streak-historik",
+    "longestLabel": "Längsta streak:",
+    "remove": "Ta bort",
+    "daysCount": "{{count}} dagar",
+    "empty": "Ingen historik än. Logga en streak för att komma igång!",
+    "unknown": "Okänt"
+  },
+  "addStreak": {
+    "title": "Lägg till en streak",
+    "startDate": "Startdatum:",
+    "endDate": "Slutdatum:",
+    "startPick": "Startdatum: {{date}}",
+    "endPick": "Slutdatum: {{date}}",
+    "pickDate": "Välj datum"
+  },
+  "logButton": {
+    "log": "LOGGA",
+    "hold": "HÅLL INNE"
+  }
+}

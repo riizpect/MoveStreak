@@ -1,13 +1,21 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet, Animated, View, Dimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
 const LogButton = ({ onLog, darkTheme }) => {
+  const { t, i18n } = useTranslation();
   const [isPressed, setIsPressed] = useState(false);
-  const [buttonText, setButtonText] = useState("LOGGA");
+  const [buttonText, setButtonText] = useState(() => t('logButton.log'));
   const textOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isPressed) {
+      setButtonText(t('logButton.log'));
+    }
+  }, [i18n.language, isPressed, t]);
   const progress = useRef(new Animated.Value(0)).current;
   const isLongPressCompleted = useRef(false);
 
@@ -27,7 +35,7 @@ const LogButton = ({ onLog, darkTheme }) => {
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      setButtonText("HÅLL INNE");
+      setButtonText(t('logButton.hold'));
       Animated.timing(textOpacity, {
         toValue: 1,
         duration: 200,
@@ -61,7 +69,7 @@ const LogButton = ({ onLog, darkTheme }) => {
         duration: 200,
         useNativeDriver: true,
       }).start(() => {
-        setButtonText("LOGGA");
+        setButtonText(t('logButton.log'));
         Animated.timing(textOpacity, {
           toValue: 1,
           duration: 200,
