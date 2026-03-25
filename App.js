@@ -1,8 +1,43 @@
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  AppState,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  Alert,
+  FlatList,
+  Animated,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  Switch,
+  Dimensions,
+  Share,
+  ImageBackground,
+} from 'react-native';
+import { Button } from 'react-native-elements';
+import Icon from '@expo/vector-icons/FontAwesome';
+import * as Animatable from 'react-native-animatable';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import * as Application from 'expo-application';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import grassBackground from './assets/grass_background.png';
+import darkBackground from './assets/dark_background.png';
+import oliveBackground from './assets/olive_background.png';
+import cloudBackground from './assets/cloud_background.png';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
+import LogButton from './LogButton';
+
 function calculateDateDifference(startDate, endDate) {
   let start = new Date(startDate);
   let end = new Date(endDate);
 
-  // Sätt tiden till midnatt för båda datumen
   start.setHours(0, 0, 0, 0);
   end.setHours(0, 0, 0, 0);
 
@@ -10,13 +45,11 @@ function calculateDateDifference(startDate, endDate) {
   let months = end.getMonth() - start.getMonth();
   let days = end.getDate() - start.getDate();
 
-  // Justera om dagarna är negativa
   if (days < 0) {
     months -= 1;
     days += new Date(end.getFullYear(), end.getMonth(), 0).getDate();
   }
 
-  // Justera om månaderna är negativa
   if (months < 0) {
     years -= 1;
     months += 12;
@@ -26,42 +59,15 @@ function calculateDateDifference(startDate, endDate) {
   return { years, months, days };
 }
 
-let isSchedulingNotification = false; // Global variabel för att förhindra dubblettschemaläggningar
-
-// Importera nödvändiga moduler och komponenter
-import React, { useEffect, useState, useRef } from 'react';
-import { AppState } from 'react-native';
-import { Platform } from 'react-native';
-import { StyleSheet, Text, View, Alert, FlatList, Animated, ScrollView, TouchableOpacity, Modal, Switch, Dimensions, Share} from 'react-native';
-import { Button } from 'react-native-elements';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import * as Animatable from 'react-native-animatable';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { ImageBackground } from 'react-native';
-import grassBackground from './assets/grass_background.png'; // Använd rätt sökväg till din bild
-import darkBackground from './assets/dark_background.png';
-import oliveBackground from './assets/olive_background.png';
-import cloudBackground from './assets/cloud_background.png';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { Audio } from 'expo-av';
-import * as Haptics from 'expo-haptics';
-import * as Insights from 'expo-insights';
-import LogButton from './LogButton';
+let isSchedulingNotification = false;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,    // För att visa banner om appen är i förgrunden
-    shouldPlaySound: true,    // Kör ljud om du vill
+    shouldShowAlert: true,
+    shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });
-
-
-import * as Application from 'expo-application';
 
 const checkAppVersion = async () => {
   const currentVersion = Application.nativeApplicationVersion || '1.0.0'; // Hämta nuvarande version
@@ -451,7 +457,8 @@ const removeStreak = async (id) => {
           body: "Detta är en testnotis för att kontrollera om tiden fungerar korrekt.",
         },
         trigger: {
-          date: triggerDate, // Använd datum istället för sekunder
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: triggerDate,
         },
       });
   
@@ -478,13 +485,32 @@ const removeStreak = async (id) => {
   };
   
   const showNotificationDatePicker = () => {
-    const currentTime = new Date();
-    setTempNotificationTime(currentTime);
+    setTempNotificationTime(new Date(notificationTime.getTime()));
     setNotificationDatePickerVisibility(true);
   };
   
   const hideNotificationDatePicker = () => {
     setNotificationDatePickerVisibility(false);
+  };
+
+  /** Stäng inställningar och alla notis-relaterade modaler (annars kan en osynlig Modal blockera tryck). */
+  const closeSettingsFully = () => {
+    setSettingsVisible(false);
+    setModalVisible(false);
+    setNotificationDatePickerVisibility(false);
+  };
+
+  const openSettingsClean = () => {
+    setModalVisible(false);
+    setNotificationDatePickerVisibility(false);
+    setSettingsVisible(true);
+  };
+
+  /** Stäng tids-modalen och gå tillbaka till inställningar (samma som Avbryt / Android tillbaka). */
+  const closeTimeModal = () => {
+    hideNotificationDatePicker();
+    setModalVisible(false);
+    setSettingsVisible(true);
   };
   
   const handleNotificationDateConfirm = async (date) => {
@@ -923,7 +949,7 @@ if (streakCount === 0) {
       console.log('showBestStreak:', showBestStreakString);
   
       const showRetroactiveButtonString = await AsyncStorage.getItem('showRetroactiveButton');
-      setShowRetroactiveButton(showRetroactiveButtonString !== 'fa  lse');
+      setShowRetroactiveButton(showRetroactiveButtonString !== 'false');
       console.log('showRetroactiveButton:', showRetroactiveButtonString);
   
       const showShareButtonString = await AsyncStorage.getItem('showShareButton');
@@ -1040,33 +1066,26 @@ if (streakCount === 0) {
 
     let isSchedulingNotification = false; // Om du vill behålla denna variabel globalt kan du lägga den utanför funktionen
 
-    const scheduleDailyNotification = async () => {
+    const scheduleDailyNotification = async (timeOverride) => {
       try {
-            // Validera att notificationTime är korrekt
-    if (!notificationTime || isNaN(notificationTime.getTime())) {
-      console.error("Fel: notificationTime är ogiltig:", notificationTime);
-      return;
-    }
-
-    console.log("Schemalägger daglig notis på:", notificationTime.toLocaleString());
-        await Notifications.cancelAllScheduledNotificationsAsync();
-    
-        if (!notificationTime) {
-          console.log("Ingen notificationTime vald. Avbryter schemaläggning.");
+        const t = timeOverride ?? notificationTime;
+        if (!t || isNaN(t.getTime())) {
+          console.error("Fel: notificationTime är ogiltig:", t);
           return;
         }
-    
-        const trigger = new Date();
-        trigger.setHours(notificationTime.getHours());
-        trigger.setMinutes(notificationTime.getMinutes());
-        trigger.setSeconds(0);
-    
-        if (trigger < new Date()) {
-          trigger.setDate(trigger.getDate() + 1); // Flytta till nästa dag om tiden redan passerat
-        }
-    
-        console.log("Schemalägger notis för exakt tid:", trigger.toLocaleString());
-    
+
+        console.log("Schemalägger daglig notis på:", t.toLocaleString());
+        await Notifications.cancelAllScheduledNotificationsAsync();
+
+        // expo-notifications kräver trigger med `type` (Date-objekt som ensam trigger är ogiltigt).
+        const trigger = {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: t.getHours(),
+          minute: t.getMinutes(),
+        };
+
+        console.log("Schemalägger daglig notis (hour/minute):", trigger.hour, trigger.minute);
+
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "Dags för din aktivitet!",
@@ -1074,8 +1093,10 @@ if (streakCount === 0) {
           },
           trigger,
         });
-    
-        console.log("Daglig notis schemalagd:", trigger.toLocaleString());
+
+        console.log(
+          `Daglig notis schemalagd (dagligen kl. ${trigger.hour}:${String(trigger.minute).padStart(2, "0")})`
+        );
       } catch (error) {
         console.error("Fel vid schemaläggning av notis:", error);
       }
@@ -1118,14 +1139,12 @@ if (streakCount === 0) {
       await scheduleDailyNotification(nyTid); // ← passera in “nyTid” som argument
     }
   
-    // 5. Stäng modal
-    handleCloseModal();
+    closeTimeModal();
   };
 
   // Avbryt tidändring för notiser
   const cancelTime = () => {
-    setSettingsVisible(true);
-    handleCloseModal();
+    closeTimeModal();
   };
 
   const handleTimePickerConfirm = (date) => {
@@ -1309,7 +1328,7 @@ const shareRunstreak = async () => {
     >
       <View style={[styles.container, darkTheme && styles.darkContainer]}>
         <View style={[styles.header, darkTheme && styles.darkHeaderFooter]}>
-          <TouchableOpacity onPress={() => setSettingsVisible(true)} style={styles.menuIcon}>
+          <TouchableOpacity onPress={openSettingsClean} style={styles.menuIcon}>
             <Icon name="bars" size={30} color={darkTheme ? "#fff" : "#3E4A89"} />
           </TouchableOpacity>
           <Text style={[styles.title, darkTheme && styles.darkHeaderFooterText]}>
@@ -1485,7 +1504,7 @@ const shareRunstreak = async () => {
   animationType="slide"
   transparent={true}
   visible={settingsVisible}
-  onRequestClose={() => setSettingsVisible(false)}
+  onRequestClose={closeSettingsFully}
 >
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
@@ -1593,6 +1612,8 @@ const shareRunstreak = async () => {
   title={`Påminnelse: ${notificationTime.getHours()}:${notificationTime.getMinutes() < 10 ? '0' : ''}${notificationTime.getMinutes()}`}
   buttonStyle={[styles.smallButton, { backgroundColor: '#42A5F5' }]}
   onPress={() => {
+    setTempNotificationTime(new Date(notificationTime.getTime()));
+    setSettingsVisible(false);
     handleOpenModal();
   }}
   containerStyle={styles.smallButtonContainer}
@@ -1657,7 +1678,7 @@ const shareRunstreak = async () => {
       <View style={styles.closeButtonWrapper}>
   <TouchableOpacity
     style={[styles.smallCloseButton, darkTheme && styles.darkCloseButton]}
-    onPress={() => setSettingsVisible(false)}
+    onPress={closeSettingsFully}
   >
     <Icon name="times" size={20} color="#fff" />
   </TouchableOpacity>
@@ -1671,7 +1692,7 @@ const shareRunstreak = async () => {
             animationType="slide"
             transparent={true}
             visible={modalVisible}
-            onRequestClose={handleCloseModal}
+            onRequestClose={closeTimeModal}
           >
             <View style={styles.centeredView}>
               <View style={[styles.modalView, darkTheme && styles.darkModalView]}>

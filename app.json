@@ -13,7 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourname.runstreakapp",
-      "googleServicesFile": "./ios/GoogleService-Info.plist",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "buildNumber": "40",
       "infoPlist": {
         "CFBundleDisplayName": "MoveStreak",
@@ -30,7 +30,7 @@
       "package": "com.movestreak.app",
       "versionCode": 40,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptiveIcon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#000000"
       },
       "permissions": [
