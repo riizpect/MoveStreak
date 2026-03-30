@@ -35,11 +35,9 @@ import * as Haptics from 'expo-haptics';
 import LogButton from './LogButton';
 import { useTranslation } from 'react-i18next';
 import i18n, { setAppLanguage, hydrateI18nLanguage } from './i18n';
-
-/** Konsekvent dag-nyckel för AsyncStorage (oförändrad så befintliga användare inte tappar matchning). */
-function storageDateKey(d = new Date()) {
-  return new Date(d).toLocaleDateString('sv-SE');
-}
+import SettingsSection from './components/SettingsSection';
+import { storageDateKey, dateRangeKeys, toMiddayDate } from './utils/date';
+import { appendUniqueString, loadJson, saveJson } from './services/storage';
 
 function calculateDateDifference(startDate, endDate) {
   let start = new Date(startDate);
@@ -141,6 +139,9 @@ export default function App() {
   const [isStartDatePickerVisible, setStartDatePickerVisible] = useState(false);
   const [isEndDatePickerVisible, setEndDatePickerVisible] = useState(false);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
+  const [activityLogDates, setActivityLogDates] = useState([]);
+  const [milestoneVisible, setMilestoneVisible] = useState(false);
+  const [latestMilestone, setLatestMilestone] = useState(null);
 
   const clearAsyncStorage = async () => {
     try {
@@ -665,6 +666,12 @@ const resetstreakCount = async (isAutomatic = false) => {
       await saveSetting('isRunLoggedToday', true);
       await saveSetting('runLoggedDate', todayDateString);
       await saveSetting('streakCount', newStreakCount);
+      try {
+        const updatedLogs = await appendUniqueString('activityLogDates', todayDateString);
+        setActivityLogDates(updatedLogs);
+      } catch (error) {
+        console.warn('Kunde inte uppdatera activityLogDates, fortsätter utan insights-data.', error);
+      }
        console.log('Aktivitet loggad idag:', isRunLoggedToday);
     
       if (newStreakCount > bestStreak) {
@@ -683,6 +690,11 @@ const resetstreakCount = async (isAutomatic = false) => {
       setLogModalVisible(false);
       playSound();
       triggerVibration();
+      try {
+        await maybeShowMilestone(newStreakCount);
+      } catch (error) {
+        console.warn('Kunde inte visa milestone, kärnlogik fortsätter.', error);
+      }
     
 
 if (streakCount === 0) {
@@ -919,6 +931,27 @@ if (streakCount === 0) {
         await saveSetting('isRunLoggedToday', true);
         console.log(`loadSettings - Run logged today: ${savedRunLoggedDateString}`);
       }
+
+      const storedActivityLogDates = await loadJson('activityLogDates', []);
+      if (Array.isArray(storedActivityLogDates) && storedActivityLogDates.length > 0) {
+        setActivityLogDates(storedActivityLogDates);
+      } else {
+        // Backfill a baseline from existing streak and historical streaks.
+        const backfilled = new Set();
+        history.forEach((item) => {
+          if (!item.startDate || !item.endDate) return;
+          dateRangeKeys(new Date(item.startDate), new Date(item.endDate)).forEach((k) => backfilled.add(k));
+        });
+        if (savedStreakStartDate && savedStreakCount && parseInt(savedStreakCount, 10) > 0) {
+          const start = new Date(savedStreakStartDate);
+          const end = new Date(start);
+          end.setDate(start.getDate() + parseInt(savedStreakCount, 10) - 1);
+          dateRangeKeys(start, end).forEach((k) => backfilled.add(k));
+        }
+        const backfilledList = Array.from(backfilled).sort();
+        setActivityLogDates(backfilledList);
+        await saveJson('activityLogDates', backfilledList);
+      }
   
       const savedActivityMode = await AsyncStorage.getItem('activityMode');
       if (savedActivityMode !== null) {
@@ -986,6 +1019,37 @@ if (streakCount === 0) {
     } catch (e) {
       console.error(`Misslyckades med att spara ${key}.`, e);
     }
+  };
+
+  const trackedMilestones = [7, 30, 100, 365];
+
+  const getInsightRate = (days) => {
+    const now = toMiddayDate(new Date());
+    const start = new Date(now);
+    start.setDate(start.getDate() - (days - 1));
+    const keys = new Set(activityLogDates);
+    let hits = 0;
+    const cursor = new Date(start);
+    while (cursor <= now) {
+      if (keys.has(storageDateKey(cursor))) hits += 1;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return Math.round((hits / days) * 100);
+  };
+
+  const getInsightTrend = () => {
+    const week = getInsightRate(7);
+    const monthAvg = Math.round(getInsightRate(30) / 4.3);
+    if (week > monthAvg + 5) return t('insights.better');
+    if (week < monthAvg - 5) return t('insights.lower');
+    return t('insights.steady');
+  };
+
+  const maybeShowMilestone = async (count) => {
+    if (!trackedMilestones.includes(count)) return;
+    setLatestMilestone(count);
+    setMilestoneVisible(true);
+    await saveSetting('lastMilestone', count);
   };
   
 
@@ -1193,8 +1257,11 @@ if (streakCount === 0) {
 const shareRunstreak = async () => {
   try {
     const typeLabel = t(`streakType.${activityMode}`);
+    const milestoneText = trackedMilestones.includes(streakCount)
+      ? ` ${t('share.milestone', { count: streakCount })}`
+      : '';
     const result = await Share.share({
-      message: t('share.message', { count: streakCount, type: typeLabel }),
+      message: `${t('share.message', { count: streakCount, type: typeLabel })}${milestoneText}`,
     });
   } catch (error) {
     alert(error.message);
@@ -1226,6 +1293,13 @@ const shareRunstreak = async () => {
     await saveSetting('streakCount', daysSinceStart);
     await saveSetting('retroactiveDate', selectedDate.toDateString());
     setRetroactiveModalVisible(false);
+    try {
+      const retroLogs = dateRangeKeys(selectedDate, currentDate);
+      await saveJson('activityLogDates', retroLogs);
+      setActivityLogDates(retroLogs);
+    } catch (error) {
+      console.warn('Kunde inte uppdatera retroaktiv insights-data, kärnlogik fortsätter.', error);
+    }
   
     if (daysSinceStart > bestStreak) {
       setBestStreak(daysSinceStart);
@@ -1236,6 +1310,11 @@ const shareRunstreak = async () => {
       const updatedStreakCount = daysSinceStart + 1;
       setStreakCount(updatedStreakCount);
       await saveSetting('streakCount', updatedStreakCount);
+      try {
+        await maybeShowMilestone(updatedStreakCount);
+      } catch (error) {
+        console.warn('Kunde inte visa milestone efter retroaktiv uppdatering.', error);
+      }
   
       if (updatedStreakCount > bestStreak) {
         setBestStreak(updatedStreakCount);
@@ -1318,6 +1397,12 @@ const shareRunstreak = async () => {
   </Text>
 </Animatable.View>
 
+          <View style={[styles.todayStatusCard, darkTheme && styles.darkTodayStatusCard]}>
+            <Text style={[styles.todayStatusText, darkTheme && styles.darkText]}>
+              {isRunLoggedToday ? t('today.logged') : t('today.pending')}
+            </Text>
+          </View>
+
 
           {showBestStreak && (
             <Animatable.View animation="fadeIn" duration={1500} style={darkTheme ? styles.darkBestStreakCard : styles.bestStreakCard}>
@@ -1326,7 +1411,7 @@ const shareRunstreak = async () => {
             </Animatable.View>
           )}
 
-<LogButton onLog={handleLogRun} darkTheme={darkTheme} />
+<LogButton onLog={handleLogRun} darkTheme={darkTheme} isLoggedToday={isRunLoggedToday} />
 
           {showMotivationalQuote && (
             <View style={styles.quoteContainer}>
@@ -1407,6 +1492,28 @@ const shareRunstreak = async () => {
   </View>
 </Modal>
 
+<Modal
+  animationType="slide"
+  transparent={true}
+  visible={milestoneVisible}
+  onRequestClose={() => setMilestoneVisible(false)}
+>
+  <View style={styles.centeredView}>
+    <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
+      <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t('milestone.title')}</Text>
+      <Text style={[styles.modalText, darkTheme && styles.darkText]}>
+        {t('milestone.body', { count: latestMilestone || 0 })}
+      </Text>
+      <TouchableOpacity
+        style={[styles.button, styles.buttonConfirm]}
+        onPress={() => setMilestoneVisible(false)}
+      >
+        <Text style={styles.textStyle}>{t('common.nice')}</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
 
 
           <Modal
@@ -1444,6 +1551,7 @@ const shareRunstreak = async () => {
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
       <Text style={[styles.modalText, darkTheme && styles.darkText]}>{t('settings.title')}</Text>
+      <SettingsSection title={t('settings.sectionGeneral')} darkTheme={darkTheme} />
       <View style={styles.switchContainer}>
         <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.language')}</Text>
         <View style={styles.languageRow}>
@@ -1502,6 +1610,7 @@ const shareRunstreak = async () => {
     value={showFullDate}
   />
 </View>
+      <SettingsSection title={t('settings.sectionDisplay')} darkTheme={darkTheme} />
       <View style={styles.switchContainer}>
         <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.showQuotes')}</Text>
         <Switch
@@ -1548,6 +1657,7 @@ const shareRunstreak = async () => {
   />
 </View>
 
+      <SettingsSection title={t('settings.sectionNotifications')} darkTheme={darkTheme} />
       <View style={styles.notificationButtonContainer}>
   <Button
     icon={<Icon name={notificationActive ? "bell" : "bell-slash"} size={15} color="white" />}
@@ -1574,6 +1684,7 @@ const shareRunstreak = async () => {
 
 </View>
 
+<SettingsSection title={t('settings.sectionActivity')} darkTheme={darkTheme} />
 <View style={styles.activityModeContainer}>
         <Text style={[styles.notificationInfoText, darkTheme && styles.darkText]}>{t('settings.activityMode')}</Text>
         <View style={styles.activityButtonsContainer}>
@@ -1617,6 +1728,7 @@ const shareRunstreak = async () => {
       </View>
 
 
+<SettingsSection title={t('settings.sectionData')} darkTheme={darkTheme} />
       <View style={styles.buttonsContainer}>
   <TouchableOpacity style={styles.button} onPress={confirmResetStreakCount}>
     <Text style={styles.buttonText}>{t('settings.resetStreak')}</Text>
@@ -1748,6 +1860,20 @@ const shareRunstreak = async () => {
   <View style={styles.centeredView}>
     <View style={[styles.modalView, darkTheme && styles.darkModalView]}>
     <Text style={[styles.historyHeader, darkTheme && styles.darkText]}>{t('history.title')}</Text>
+    <View style={styles.insightsRow}>
+      <View style={[styles.insightCard, darkTheme && styles.darkInsightCard]}>
+        <Text style={[styles.insightTitle, darkTheme && styles.darkText]}>{t('insights.last7')}</Text>
+        <Text style={[styles.insightValue, darkTheme && styles.darkText]}>{getInsightRate(7)}%</Text>
+      </View>
+      <View style={[styles.insightCard, darkTheme && styles.darkInsightCard]}>
+        <Text style={[styles.insightTitle, darkTheme && styles.darkText]}>{t('insights.last30')}</Text>
+        <Text style={[styles.insightValue, darkTheme && styles.darkText]}>{getInsightRate(30)}%</Text>
+      </View>
+      <View style={[styles.insightCard, darkTheme && styles.darkInsightCard]}>
+        <Text style={[styles.insightTitle, darkTheme && styles.darkText]}>{t('insights.trend')}</Text>
+        <Text style={[styles.insightValue, darkTheme && styles.darkText]}>{getInsightTrend()}</Text>
+      </View>
+    </View>
 
     <FlatList
   data={streakHistory}
@@ -1926,6 +2052,51 @@ const styles = StyleSheet.create({
     paddingVertical: hp('1%'),
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: wp('2%'),
+  },
+  todayStatusCard: {
+    marginTop: hp('0.5%'),
+    marginBottom: hp('1.5%'),
+    paddingHorizontal: wp('4%'),
+    paddingVertical: hp('0.8%'),
+    borderRadius: wp('6%'),
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  darkTodayStatusCard: {
+    backgroundColor: 'rgba(40,40,40,0.95)',
+  },
+  todayStatusText: {
+    fontSize: wp('3.5%'),
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  insightsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8,
+  },
+  insightCard: {
+    flex: 1,
+    borderRadius: 10,
+    backgroundColor: '#eef3ff',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  darkInsightCard: {
+    backgroundColor: '#1f1f1f',
+  },
+  insightTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3E4A89',
+    marginBottom: 4,
+  },
+  insightValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1f2937',
   },
 
   buttonsContainer: {

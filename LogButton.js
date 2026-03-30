@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
-const LogButton = ({ onLog, darkTheme }) => {
+const LogButton = ({ onLog, darkTheme, isLoggedToday }) => {
   const { t, i18n } = useTranslation();
   const [isPressed, setIsPressed] = useState(false);
   const [buttonText, setButtonText] = useState(() => t('logButton.log'));
@@ -25,6 +25,10 @@ const LogButton = ({ onLog, darkTheme }) => {
   const textColor = darkTheme ? '#FFF' : '#000';
 
   const handlePressIn = () => {
+    if (isLoggedToday) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
     setIsPressed(true);
     isLongPressCompleted.current = false;
 
@@ -58,6 +62,7 @@ const LogButton = ({ onLog, darkTheme }) => {
   };
 
   const handlePressOut = () => {
+    if (isLoggedToday) return;
     if (!isLongPressCompleted.current) {
       Animated.timing(progress).stop();
       resetProgressBar();
@@ -110,7 +115,7 @@ const LogButton = ({ onLog, darkTheme }) => {
           ]}
         />
         <Animated.Text style={[styles.text, { opacity: textOpacity, color: textColor }]}>
-          {buttonText}
+          {isLoggedToday ? t('logButton.done') : buttonText}
         </Animated.Text>
       </TouchableOpacity>
     </View>

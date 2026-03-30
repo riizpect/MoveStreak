@@ -56,7 +56,8 @@
     "close": "Stäng",
     "add": "Lägg till",
     "yesAbsolutely": "Ja, såklart!",
-    "yesReset": "Ja, nollställ"
+    "yesReset": "Ja, nollställ",
+    "nice": "Snyggt!"
   },
   "start": "Start",
   "days": "dagar",
@@ -77,7 +78,24 @@
   },
   "share": {
     "title": "Dela din MoveStreak",
-    "message": "Jag har {{count}} dagars {{type}}! #MoveStreakApp"
+    "message": "Jag har {{count}} dagars {{type}}! #MoveStreakApp",
+    "milestone": "Jag nådde precis {{count}} dagar!"
+  },
+  "today": {
+    "logged": "Klar idag",
+    "pending": "Inte loggad idag ännu"
+  },
+  "insights": {
+    "last7": "7 dagar",
+    "last30": "30 dagar",
+    "trend": "Trend",
+    "better": "Upp",
+    "steady": "Stabil",
+    "lower": "Ned"
+  },
+  "milestone": {
+    "title": "Ny milstolpe",
+    "body": "Snyggt! Du har nått {{count}} dagar i rad."
   },
   "notifications": {
     "on": "Notiser på",
@@ -122,6 +140,11 @@
   },
   "settings": {
     "title": "Inställningar",
+    "sectionGeneral": "Allmänt",
+    "sectionDisplay": "Visning",
+    "sectionNotifications": "Notiser",
+    "sectionActivity": "Aktivitet",
+    "sectionData": "Data",
     "language": "Språk",
     "languageEnglish": "English",
     "languageSwedish": "Svenska",
@@ -180,6 +203,7 @@
   },
   "logButton": {
     "log": "LOGGA",
-    "hold": "HÅLL INNE"
+    "hold": "HÅLL INNE",
+    "done": "KLAR"
   }
 }
